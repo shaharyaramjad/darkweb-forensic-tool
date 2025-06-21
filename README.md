@@ -1,14 +1,19 @@
-# DarkWeb Forensic Tool
+# 🔐 DarkWeb Forensic Tool
 
-<!-- to activate the virtual environment -->
-source venv/bin/activate
+This Python-based **offline forensic tool** processes `.html` pages extracted from dark web investigations. It automatically:
 
-<!-- to include that library -->
-pip freeze > requirements.txt
+- ✅ Extracts Bitcoin (BTC) addresses  
+- ✅ Detects email addresses  
+- ⚠️ Flags risky keywords (e.g., "buy drugs", "zero-day", etc.)  
+- 🔥 Calculates a risk score with severity label  
+- 🧾 Generates PDF and JSON forensic reports  
+- 🛡️ Verifies file integrity using SHA-256 hash
 
-<!-- run by this command: -->
-python3 -m src.main
+---
 
+## 📦 Setup Instructions
 
-<!-- from writing and setting the branch this is the format -->
-Fixes: Scrum-5 - description
+### 1. Clone the Repository
+```bash
+git clone https://github.com/shaharyaramjad/darkweb-forensic-tool.git
+cd darkweb-forensic-tool
