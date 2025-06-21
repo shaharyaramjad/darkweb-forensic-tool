@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from src.extract.btc_extractor import extract_btc_from_html
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
@@ -7,16 +8,17 @@ from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
 
+# ===== Case metadata =====
+case_id = input("🔍 Enter Case ID: ")
+investigator = input("👤 Investigator Name: ")
+notes = input("📝 Notes / Description: ")
 
-
-
-
+# ===== Process files =====
 directory = 'data'
 
 for filename in os.listdir(directory):
     if filename.endswith(".html"):
         filepath = os.path.join(directory, filename)
-
 
         # Run extractors
         btc_found = extract_btc_from_html(filepath)
@@ -45,35 +47,43 @@ for filename in os.listdir(directory):
                 print(f"⚠️ Risky Keyword Detected: '{keyword}'")
         else:
             print("✅ No risky keywords detected.")
-    # 🔥 Risk Score
-    score = calculate_risk_score(btc_found, emails_found, keywords_found)
-    print(f"🔥 Risk Score: {score}")
 
-    severity = "Low"
-    if score > 70:
-        severity = "High"
-    elif score > 40:
-        severity = "Medium"
-        
-    generate_pdf_report(
-        filename,
-        file_hash,
-        btc_found,
-        emails_found,
-        keywords_found,
-        score,
-        severity
-    )
-    generate_json_report(
-    filename,
-    file_hash,
-    btc_found,
-    emails_found,
-    keywords_found,
-    score,
-    severity
-    )
+        # 🔥 Risk Score
+        score = calculate_risk_score(btc_found, emails_found, keywords_found)
+        print(f"🔥 Risk Score: {score}")
 
+        severity = "Low"
+        if score > 70:
+            severity = "High"
+        elif score > 40:
+            severity = "Medium"
 
+        # 📄 Generate reports with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_filename = os.path.splitext(filename)[0]
+        report_name = f"{case_id}_{base_filename}_{timestamp}"
 
-    
+        generate_pdf_report(
+            report_name,
+            file_hash,
+            btc_found,
+            emails_found,
+            keywords_found,
+            score,
+            severity,
+            case_id,
+            investigator,
+            notes
+        )
+        generate_json_report(
+            report_name,
+            file_hash,
+            btc_found,
+            emails_found,
+            keywords_found,
+            score,
+            severity,
+            case_id,
+            investigator,
+            notes
+        )

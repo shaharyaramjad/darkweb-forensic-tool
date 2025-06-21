@@ -1,19 +1,30 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from datetime import datetime
+import os
 
-def generate_pdf_report(filename, hash_value, btc_list, email_list, keywords, score, level):
+def generate_pdf_report(filename, hash_value, btc_list, email_list, keywords, score, level, case_id, investigator, notes):
+    os.makedirs("reports", exist_ok=True)
     report_filename = f"report_{filename.replace('.html', '')}.pdf"
-    c = canvas.Canvas(f"reports/{report_filename}", pagesize=A4)
+    report_path = os.path.join("reports", report_filename)
+    c = canvas.Canvas(report_path, pagesize=A4)
     width, height = A4
 
     y = height - 50
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, y, "🕵️ DarkWeb Forensic Report")
-    
+
     y -= 30
     c.setFont("Helvetica", 12)
     c.drawString(50, y, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    # Case metadata
+    y -= 30
+    c.drawString(50, y, f"🔎 Case ID: {case_id or 'N/A'}")
+    y -= 20
+    c.drawString(50, y, f"👮 Investigator: {investigator or 'N/A'}")
+    y -= 20
+    c.drawString(50, y, f"📝 Description: {notes or 'N/A'}")
 
     y -= 30
     c.drawString(50, y, f"📄 File: {filename}")
