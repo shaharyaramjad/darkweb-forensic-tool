@@ -1,26 +1,50 @@
-# 🔧 Common Developer Commands
+# 🛠️ DarkWeb Forensic Tool – Developer Command Guide
 
-## ✅ Virtual Environment
+A collection of essential commands for developing, running, verifying, and contributing to the tool.
+
+---
+
+## ✅ 1. Activate Virtual Environment
 source venv/bin/activate
 
-## 📦 Install/Track Dependencies
+## 📦 2. Manage Dependencies
+
+## 2.1 Freeze installed packages for collaboration:
 pip freeze > requirements.txt
 
-## 🚀 Run Main Tool
+## 2.2 Install from requirements.txt (for new team members):
+pip install -r requirements.txt
+
+## 🚀 3. Run Main Forensic Tool (CLI)
+
+## Execute analysis on all .html files inside /data:
 python3 -m src.main
 
-## 🔐 Verify File Hash
+## 🔐 4. Verify File Authenticity (Hash Matching)
+
+## 🔄 4.1. Verify All Files
+
+python3 -m src.verify.verify_hash
+
+## 🔍 4.2. Verify a Single File
+
 python3 -m src.verify.verify_hash data/test_btc.html reports/report_test_btc.json
 
-## 🧪 Create & Push Branch (Example)
-git checkout -b SCRUM-number
+## 🧪 5. Branching & Git Workflow
+
+## 5.1. 🔧 Create & Push Feature Branch
+
+git checkout -b SCRUM-5
 git add .
 git commit -m "Fixes: SCRUM-5 - added report feature"
-git pull --rebase origin main   
-git push origin SCRUM-number
+git pull --rebase origin main
+git push origin SCRUM-5
 
-<!-- from writing and setting the branch this is the format -->
-Fixes: Scrum-5 - description
+## 5.2. ✅ Use commit format:
 
-## to run the web app
-streamlit run src/ui/app.py   
+Fixes: SCRUM-<ticket> - <brief-description>
+
+## 🌐 6. Run Web App Interface (Streamlit)
+## Launch the Streamlit web app:
+streamlit run src/ui/app.py
+
