@@ -4,6 +4,8 @@ from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
+from src.report.pdf_report import generate_pdf_report
+
 
 
 
@@ -44,5 +46,22 @@ for filename in os.listdir(directory):
     # 🔥 Risk Score
     score = calculate_risk_score(btc_found, emails_found, keywords_found)
     print(f"🔥 Risk Score: {score}")
+
+    severity = "Low"
+    if score > 70:
+        severity = "High"
+    elif score > 40:
+        severity = "Medium"
+        
+    generate_pdf_report(
+        filename,
+        file_hash,
+        btc_found,
+        emails_found,
+        keywords_found,
+        score,
+        severity
+    )
+
 
     
