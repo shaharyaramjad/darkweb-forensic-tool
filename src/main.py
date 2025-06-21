@@ -5,6 +5,8 @@ from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
+from src.report.json_report import generate_json_report
+
 
 
 
@@ -62,6 +64,16 @@ for filename in os.listdir(directory):
         score,
         severity
     )
+    generate_json_report(
+    filename,
+    file_hash,
+    btc_found,
+    emails_found,
+    keywords_found,
+    score,
+    severity
+    )
+
 
 
     
