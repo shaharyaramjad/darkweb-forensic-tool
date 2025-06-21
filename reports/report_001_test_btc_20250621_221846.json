@@ -1,5 +1,5 @@
 {
-    "file_name": "test_btc.html",
+    "file_name": "001_test_btc_20250621_221846",
     "sha256_hash": "19ad1fd420808f5dd251349da8d6012ef66a65542a4d6a15bb6a0d2bbdcae125",
     "btc_addresses": [
         "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
@@ -16,5 +16,8 @@
         "fake passport"
     ],
     "risk_score": 115,
-    "severity_label": "High"
+    "severity_label": "High",
+    "case_id": "001",
+    "investigator": "sam",
+    "notes": ""
 }
