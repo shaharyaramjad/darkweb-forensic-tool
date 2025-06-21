@@ -21,3 +21,6 @@ git push origin SCRUM-number
 
 <!-- from writing and setting the branch this is the format -->
 Fixes: Scrum-5 - description
+
+## to run the web app
+streamlit run src/ui/app.py   

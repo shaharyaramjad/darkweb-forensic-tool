@@ -1,7 +1,7 @@
 import json
 import os
 
-def generate_json_report(file_name, sha256_hash, btc_addresses, emails, risky_keywords, risk_score, severity_label):
+def generate_json_report(file_name, sha256_hash, btc_addresses, emails, risky_keywords, risk_score, severity_label, case_id, investigator, notes):
     report_data = {
         "file_name": file_name,
         "sha256_hash": sha256_hash,
@@ -9,7 +9,10 @@ def generate_json_report(file_name, sha256_hash, btc_addresses, emails, risky_ke
         "emails": emails,
         "risky_keywords": risky_keywords,
         "risk_score": risk_score,
-        "severity_label": severity_label
+        "severity_label": severity_label,
+        "case_id": case_id,
+        "investigator": investigator,
+        "notes": notes
     }
 
     os.makedirs("reports", exist_ok=True)
