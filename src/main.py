@@ -1,12 +1,16 @@
 import os
 from datetime import datetime
-from src.extract.btc_extractor import extract_btc_from_html
+from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
+from src.llm.llm_classifier import classify_with_llm
+
+# ===== Toggle LLM Integration =====
+USE_LLM = False  # 🔁 Set to False to disable LLM processing manually
 
 # ===== Case metadata =====
 case_id = input("🔍 Enter Case ID: ")
@@ -21,21 +25,39 @@ for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
 
         # Run extractors
-        btc_found = extract_btc_from_html(filepath)
+        payment_addresses = extract_payment_addresses_from_html(filepath)
         emails_found = extract_emails_from_html(filepath)
         keywords_found = detect_risk_keywords_from_html(filepath)
         file_hash = calculate_sha256(filepath)
+
+        # LLM Summary (if enabled)
+        llm_summary = "LLM disabled."
+        suspected_payment = None
+        if USE_LLM:
+            try:
+                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                    html_text = f.read()
+                    llm_summary = classify_with_llm(html_text)
+
+                    # 🔍 Hybrid Payment Fallback
+                    if not payment_addresses and "bitcoin" in llm_summary.lower():
+                        suspected_payment = "⚠️ Suspected BTC (via LLM)"
+                        payment_addresses.append(suspected_payment)
+
+            except Exception as e:
+                print(f"❌ LLM Error: {e}")
+                llm_summary = "⚠️ LLM failed to generate summary."
 
         # Print results
         print(f"\n📄 File: {filename}")
         print(f"🧾 SHA-256 Hash: {file_hash}")
 
-        if btc_found:
-            for btc in btc_found:
-                print(f"✅ BTC Address Found: {btc}")
+        if payment_addresses:
+            for addr in payment_addresses:
+                print(f"💰 Payment Address Found: {addr}")
         else:
-            print("❌ No BTC addresses found.")
-        
+            print("❌ No payment addresses found.")
+
         if emails_found:
             for email in emails_found:
                 print(f"✅ Email Found: {email}")
@@ -48,8 +70,10 @@ for filename in os.listdir(directory):
         else:
             print("✅ No risky keywords detected.")
 
+        print(f"🧠 LLM Summary: {llm_summary}")
+
         # 🔥 Risk Score
-        score = calculate_risk_score(btc_found, emails_found, keywords_found)
+        score = calculate_risk_score(payment_addresses, emails_found, keywords_found)
         print(f"🔥 Risk Score: {score}")
 
         severity = "Low"
@@ -58,7 +82,7 @@ for filename in os.listdir(directory):
         elif score > 40:
             severity = "Medium"
 
-        # 📄 Generate reports with timestamp
+        # 📄 Generate reports
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_filename = os.path.splitext(filename)[0]
         report_name = f"{case_id}_{base_filename}_{timestamp}"
@@ -66,24 +90,27 @@ for filename in os.listdir(directory):
         generate_pdf_report(
             report_name,
             file_hash,
-            btc_found,
+            payment_addresses,
             emails_found,
             keywords_found,
             score,
             severity,
             case_id,
             investigator,
-            notes
+            notes,
+            llm_summary
         )
+
         generate_json_report(
             report_name,
             file_hash,
-            btc_found,
+            payment_addresses,
             emails_found,
             keywords_found,
             score,
             severity,
             case_id,
             investigator,
-            notes
+            notes,
+            llm_summary
         )
