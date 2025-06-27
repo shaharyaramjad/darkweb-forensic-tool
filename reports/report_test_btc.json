@@ -1,12 +1,14 @@
 {
     "file_name": "test_btc.html",
-    "sha256_hash": "19ad1fd420808f5dd251349da8d6012ef66a65542a4d6a15bb6a0d2bbdcae125",
+    "sha256_hash": "536edff56ea897e369c86690ef0233a59e37eda951d920667505bb897928fd7f",
     "btc_addresses": [
         "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
     ],
     "emails": [
-        "seller@example.com",
+        " seller@example.com",
+        " support123@protonmail.com",
         "admin@darkwebmail.onion",
+        "seller@example.com",
         "support123@protonmail.com"
     ],
     "risky_keywords": [
@@ -15,6 +17,6 @@
         "zero-day",
         "fake passport"
     ],
-    "risk_score": 115,
+    "risk_score": 125,
     "severity_label": "High"
 }
