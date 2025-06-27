@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+reports/*.pdf
+reports/*.json
+data/*.html
