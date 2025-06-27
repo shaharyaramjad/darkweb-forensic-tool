@@ -1,0 +1,14 @@
+{
+    "file_name": "test_sample.html",
+    "sha256_hash": "29ed8132a6f3e08923f2e99e59f1a00cae2ea5306f78872bc2064a5506baa7c6",
+    "btc_addresses": [],
+    "emails": [
+        " john.doe@example.com",
+        "ghost@protonmail.com",
+        "hacker@cock.li",
+        "john.doe@example.com"
+    ],
+    "risky_keywords": [],
+    "risk_score": 20,
+    "severity_label": "Low"
+}
