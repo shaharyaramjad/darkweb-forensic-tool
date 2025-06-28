@@ -11,10 +11,12 @@ from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
-from src.llm.llm_classifier import classify_with_llm  # ✅ LLM added
+from src.llm.llm_classifier import classify_with_llm  # ✅ LLM summary integration
 
 # ========== SETTINGS ==========
 USE_LLM = False  # ✅ Toggle LLM ON/OFF
+USE_AI = True    # ✅ Toggle AI fallback ON/OFF
+TRANSLATE = True # ✅ Translate non-English content
 
 # ========== UI ==========
 st.title("🕵️‍♀️ Dark Web Forensic Report Tool")
@@ -42,11 +44,16 @@ if st.button("Extract Data"):
 
             # Extraction
             file_hash = calculate_sha256(temp_path)
-            payments = extract_payment_addresses_from_html(temp_path)
+            payments = extract_payment_addresses_from_html(
+                temp_path,
+                use_llm=USE_LLM,
+                use_ai=USE_AI,
+                translate=TRANSLATE
+            )
             emails = extract_emails_from_html(temp_path)
-            keywords = detect_risk_keywords_from_html(temp_path)
+            keywords = detect_risk_keywords_from_html(temp_path,use_llm=USE_LLM,use_ai=USE_AI,translate=TRANSLATE)
 
-            # LLM Summary + Hybrid Payment Check
+            # LLM Summary
             llm_summary = "LLM disabled."
             if USE_LLM:
                 try:
