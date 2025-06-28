@@ -6,7 +6,7 @@ from huggingface_hub import InferenceClient
 # Initialize StarPII client
 client = InferenceClient(
     provider="hf-inference",
-    api_key=os.environ["HF_TOKEN"],
+    api_key="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",
 )
 
 # Regex patterns
