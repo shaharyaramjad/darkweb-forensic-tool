@@ -51,7 +51,7 @@ if st.button("Extract Data"):
                 translate=TRANSLATE
             )
             emails = extract_emails_from_html(temp_path)
-            keywords = detect_risk_keywords_from_html(temp_path)
+            keywords = detect_risk_keywords_from_html(temp_path,use_llm=USE_LLM,use_ai=USE_AI,translate=TRANSLATE)
 
             # LLM Summary
             llm_summary = "LLM disabled."
