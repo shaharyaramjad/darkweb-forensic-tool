@@ -9,8 +9,10 @@ from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
 from src.llm.llm_classifier import classify_with_llm
 
-# ===== Toggle LLM Integration =====
-USE_LLM = False  # 🔁 Set to False to disable LLM processing manually
+# ===== Toggle Integrations =====
+USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
+USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
+TRANSLATE = True     # 🔁 Enable or disable translation step
 
 # ===== Case metadata =====
 case_id = input("🔍 Enter Case ID: ")
@@ -25,25 +27,23 @@ for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
 
         # Run extractors
-        payment_addresses = extract_payment_addresses_from_html(filepath)
+        payment_addresses = extract_payment_addresses_from_html(
+            filepath, 
+            use_llm=USE_LLM, 
+            use_ai=USE_AI_MODEL, 
+            translate=TRANSLATE
+        )
         emails_found = extract_emails_from_html(filepath)
         keywords_found = detect_risk_keywords_from_html(filepath)
         file_hash = calculate_sha256(filepath)
 
         # LLM Summary (if enabled)
         llm_summary = "LLM disabled."
-        suspected_payment = None
         if USE_LLM:
             try:
                 with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                     html_text = f.read()
                     llm_summary = classify_with_llm(html_text)
-
-                    # 🔍 Hybrid Payment Fallback
-                    if not payment_addresses and "bitcoin" in llm_summary.lower():
-                        suspected_payment = "⚠️ Suspected BTC (via LLM)"
-                        payment_addresses.append(suspected_payment)
-
             except Exception as e:
                 print(f"❌ LLM Error: {e}")
                 llm_summary = "⚠️ LLM failed to generate summary."
