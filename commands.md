@@ -48,3 +48,6 @@ Fixes: SCRUM-<ticket> - <brief-description>
 ## Launch the Streamlit web app:
 streamlit run src/ui/app.py
 
+## Launch the sql web interface to execute queries and result
+streamlit run src/ui/sql_query_interface.py
+

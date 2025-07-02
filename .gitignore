@@ -3,3 +3,4 @@ __pycache__/
 reports/*.pdf
 reports/*.json
 data/*.html
+.env
