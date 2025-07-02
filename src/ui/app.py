@@ -4,6 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from datetime import datetime
+from src.utils.db_insert import insert_into_db
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
@@ -17,6 +18,8 @@ from src.llm.llm_classifier import classify_with_llm  # ✅ LLM summary integrat
 USE_LLM = False  # ✅ Toggle LLM ON/OFF
 USE_AI = True    # ✅ Toggle AI fallback ON/OFF
 TRANSLATE = True # ✅ Translate non-English content
+USE_SQL = True  # ✅ Toggle SQL insertion ON/OFF
+
 
 # ========== UI ==========
 st.title("🕵️‍♀️ Dark Web Forensic Report Tool")
@@ -73,7 +76,22 @@ if st.button("Extract Data"):
 
             generate_pdf_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
             generate_json_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
-
             st.success(f"✅ {file_name} processed. PDF and JSON saved as: {base_name}")
+            if USE_SQL:
+                insert_into_db(
+                    case_id,
+                    investigator,
+                    notes,
+                    emails,
+                    payments,
+                    keywords,
+                    score,
+                    label,
+                    file_hash,
+                    llm_summary
+                )
+                st.info("✅ Data inserted into MySQL database.")
+            else:
+                st.warning("⚠️ SQL insertion disabled. Skipping DB insert.")
 
 st.caption("📁 Reports are saved to the `reports/` directory.")

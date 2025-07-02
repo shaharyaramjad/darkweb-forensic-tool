@@ -1,4 +1,5 @@
 import os
+from src.utils.db_insert import insert_into_db
 from datetime import datetime
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
 from src.extract.email_extractor import extract_emails_from_html
@@ -13,6 +14,8 @@ from src.llm.llm_classifier import classify_with_llm
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
 USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
 TRANSLATE = True     # 🔁 Enable or disable translation step
+USE_SQL = False  # 🔁 Set to False to disable MySQL insert
+
 
 # ===== Case metadata =====
 case_id = input("🔍 Enter Case ID: ")
@@ -114,3 +117,21 @@ for filename in os.listdir(directory):
             notes,
             llm_summary
         )
+
+        if USE_SQL:
+            insert_into_db(
+                case_id,
+                investigator,
+                notes,
+                emails_found,
+                payment_addresses,
+                keywords_found,
+                score,
+                severity,
+                file_hash,
+                llm_summary
+            )
+            print("✅ Data inserted into MySQL database successfully.")
+        else:
+            print("⚠️ SQL insertion is disabled. Skipping DB insert.")
+
