@@ -36,7 +36,7 @@ for filename in os.listdir(directory):
             use_ai=USE_AI_MODEL, 
             translate=TRANSLATE
         )
-        emails_found = extract_emails_from_html(filepath)
+        emails_found = extract_emails_from_html(filepath, use_ai=USE_AI_MODEL, use_llm=USE_LLM, translate=TRANSLATE)
         keywords_found = detect_risk_keywords_from_html(filepath,use_llm=USE_LLM,use_ai=USE_AI_MODEL,translate=TRANSLATE)
         file_hash = calculate_sha256(filepath)
 

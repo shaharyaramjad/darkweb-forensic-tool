@@ -2,35 +2,25 @@ import os
 from openai import OpenAI
 from deep_translator import GoogleTranslator
 from langdetect import detect
+from transformers import pipeline
 
-# === STATIC KEYWORDS ===
-STATIC_RISK_KEYWORDS = [
-    "buy drugs", "credit card dump", "exploit", "zero-day",
-    "fake passport", "hitman", "weapon", "child abuse", "counterfeit"
-]
-
-# === LLM Client ===
+# === LLM Client (Together.ai) ===
 TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
 client = OpenAI(
     base_url="https://api.together.ai/",
     api_key=TOGETHER_API_KEY,
 )
 
-# === Placeholder: Basic AI classifier (to be replaced or trained later) ===
-def mock_ai_keyword_detector(text):
-    risky_signals = ["dark market", "ransomware", "exploit kit", "dumps", "silk road", "hydra", "malware"]
-    detected = []
-    for kw in risky_signals:
-        if kw in text.lower():
-            detected.append(kw)
-    return detected
+# === Hugging Face Zero-Shot Classifier ===
+zero_shot_classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
-def detect_risk_keywords_from_html(filepath, use_llm=True, use_ai=True, translate=True):
+# === Function ===
+def detect_risk_keywords_from_html(filepath, use_llm, use_ai, translate):
     found_keywords = []
 
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            html_text = f.read().lower()
+            html_text = f.read()
 
             # === Language detection and translation ===
             if translate:
@@ -42,22 +32,24 @@ def detect_risk_keywords_from_html(filepath, use_llm=True, use_ai=True, translat
                 except Exception as e:
                     print(f"⚠️ Language detection/translation error: {e}")
 
-            # === Static keyword check ===
-            for keyword in STATIC_RISK_KEYWORDS:
-                if keyword in html_text:
-                    found_keywords.append(keyword)
+            # === AI Zero-shot classification check ===
+            if use_ai:
+                candidate_labels = ["drugs", "weapons", "hacking", "fraud", "child abuse", 
+                                    "fake documents", "exploit", "ransomware", "credit card dump", 
+                                    "botnet", "hitman", "forged passport", "zero-day"]
+                result = zero_shot_classifier(html_text, candidate_labels=candidate_labels, multi_label=True)
 
-            # === AI fallback check ===
-            if use_ai and not found_keywords:
-                ai_detected = mock_ai_keyword_detector(html_text)
-                found_keywords.extend(ai_detected)
+                for label, score in zip(result["labels"], result["scores"]):
+                    if score > 0.5:  # Threshold can be adjusted
+                        found_keywords.append(label)
 
-            # === LLM fallback check ===
+            # === LLM fallback ===
             if use_llm and not found_keywords and TOGETHER_API_KEY:
+                print("⚠️ No keywords found via AI. Trying LLM fallback...")
                 prompt = f"""
 You're an AI forensic assistant. Scan the following HTML content and extract any risky keywords indicating illegal activity such as drugs, weapons, fraud, child exploitation, hacking, or other crimes.
 
-Return a list of single keywords only.
+Return a list of single keywords only (one per line).
 
 HTML CONTENT:
 {html_text[:2000]}
