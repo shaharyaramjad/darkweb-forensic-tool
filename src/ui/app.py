@@ -16,9 +16,9 @@ from src.llm.llm_classifier import classify_with_llm  # ✅ LLM summary integrat
 
 # ========== SETTINGS ==========
 USE_LLM = False  # ✅ Toggle LLM ON/OFF
-USE_AI = True    # ✅ Toggle AI fallback ON/OFF
-TRANSLATE = True # ✅ Translate non-English content
-USE_SQL = True  # ✅ Toggle SQL insertion ON/OFF
+USE_AI = False    # ✅ Toggle AI fallback ON/OFF
+TRANSLATE = False # ✅ Translate non-English content
+USE_SQL = False  # ✅ Toggle SQL insertion ON/OFF
 
 
 # ========== UI ==========
@@ -53,7 +53,7 @@ if st.button("Extract Data"):
                 use_ai=USE_AI,
                 translate=TRANSLATE
             )
-            emails = extract_emails_from_html(temp_path)
+            emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, translate=TRANSLATE)
             keywords = detect_risk_keywords_from_html(temp_path,use_llm=USE_LLM,use_ai=USE_AI,translate=TRANSLATE)
 
             # LLM Summary
