@@ -12,8 +12,8 @@ from src.llm.llm_classifier import classify_with_llm
 
 # ===== Toggle Integrations =====
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
-USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
-TRANSLATE = True     # 🔁 Enable or disable translation step
+USE_AI_MODEL = False  # 🔁 Toggle spaCy local AI ON/OFF
+TRANSLATE = False     # 🔁 Enable or disable translation step
 USE_SQL = False  # 🔁 Set to False to disable MySQL insert
 
 
