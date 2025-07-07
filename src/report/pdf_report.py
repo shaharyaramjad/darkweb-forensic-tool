@@ -60,3 +60,4 @@ def generate_pdf_report(
 
     c.save()
     print(f"📄 PDF report generated: {report_filename}")
+    return report_path
