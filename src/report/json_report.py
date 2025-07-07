@@ -38,3 +38,4 @@ def generate_json_report(
         json.dump(report_data, json_file, indent=4, ensure_ascii=False)
 
     print(f"📄 JSON report generated: {os.path.basename(report_path)}")
+    return report_path

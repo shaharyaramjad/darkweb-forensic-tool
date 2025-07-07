@@ -1,10 +1,13 @@
 import re
 import os
 import spacy
+import faiss
+import numpy as np
 from bs4 import BeautifulSoup
 from langdetect import detect
 from deep_translator import GoogleTranslator
 from openai import OpenAI
+from sentence_transformers import SentenceTransformer
 
 # Regex pattern for common crypto/payment addresses
 payment_pattern = r"""
@@ -26,20 +29,48 @@ payment_pattern = r"""
 # Initialize spaCy
 nlp = spacy.load("en_core_web_sm")
 
-# 🧪 For testing: Enter your Together.ai API key as a string
-TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
-
 # Together.ai LLM
+TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
 client = OpenAI(
     base_url="https://api.together.ai/",
     api_key=TOGETHER_API_KEY,
 )
 
-def llm_fallback_classify(text):
-    prompt = f"""
-You are an AI trained to detect potential crypto or payment addresses in text, even if obfuscated.
+# === Knowledge base for RAG ===
+knowledge_texts = [
+    "BTC addresses often start with 1 or 3 or bc1.",
+    "Ethereum addresses start with 0x and have 40 hex characters.",
+    "Monero addresses start with 4 and are about 95 characters long.",
+    "Some dark web vendors use obfuscated addresses hidden in text or broken with spaces.",
+    "Always check for long alphanumeric strings resembling crypto addresses when scanning dark web pages.",
+    "Litecoin addresses may start with L or M or ltc1."
+]
 
-Analyze and list suspicious address references.
+# Embedding model
+model = SentenceTransformer("all-MiniLM-L6-v2")
+knowledge_embeddings = model.encode(knowledge_texts)
+dimension = knowledge_embeddings.shape[1]
+index = faiss.IndexFlatL2(dimension)
+index.add(np.array(knowledge_embeddings))
+
+def retrieve_context(text, k=2):
+    query_embedding = model.encode([text])
+    distances, indices = index.search(np.array(query_embedding), k)
+    retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
+    return "\n".join(retrieved_contexts)
+
+def llm_fallback_classify(text, context):
+    prompt = f"""
+You are an AI trained to detect cryptocurrency or payment addresses in text.
+
+Use the following knowledge base context to help you.
+
+Knowledge base context:
+{context}
+
+Return only a single comma-separated list of payment addresses. 
+
+⚠️ Do NOT include explanations, bullet points, parentheses, or comments. No other text.
 
 TEXT:
 {text[:2000]}
@@ -50,9 +81,20 @@ TEXT:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
-        return response.choices[0].message.content.strip().split("\n")
+        llm_output = response.choices[0].message.content.strip()
+
+        # Split by comma first
+        raw_addresses = [addr.strip() for addr in llm_output.split(",") if addr.strip()]
+
+        # Extra cleanup: keep only strings matching your regex pattern
+        pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
+        filtered_addresses = [addr for addr in raw_addresses if pattern.fullmatch(addr)]
+
+        return filtered_addresses
+
     except Exception as e:
         return [f"❌ LLM Error: {e}"]
+
 
 def extract_payment_addresses_from_html(file_path, use_llm=True, use_ai=True, translate=True):
     matches = []
@@ -83,10 +125,11 @@ def extract_payment_addresses_from_html(file_path, use_llm=True, use_ai=True, tr
                     if ent.label_ in ["MONEY", "CARDINAL"] and len(ent.text) > 10:
                         matches.append(ent.text.strip())
 
-            # LLM fallback
+            # RAG + LLM fallback
             if use_llm and not matches and TOGETHER_API_KEY:
-                print(f"[LLM] Trying fallback on: {os.path.basename(file_path)}")
-                llm_results = llm_fallback_classify(text)
+                print(f"[LLM with RAG] Trying fallback on: {os.path.basename(file_path)}")
+                retrieved_context = retrieve_context(text)
+                llm_results = llm_fallback_classify(text, retrieved_context)
                 matches.extend(llm_results)
 
     except Exception as e:

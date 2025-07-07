@@ -45,9 +45,9 @@ git push origin SCRUM-5
 Fixes: SCRUM-<ticket> - <brief-description>
 
 ## 🌐 6. Run Web App Interface (Streamlit)
-## Launch the Streamlit web app:
+## Launch the integrated Streamlit web app (includes both Forensic Analysis and SQL Query Interface):
 streamlit run src/ui/app.py
 
-## Launch the sql web interface to execute queries and result
+## Launch the standalone SQL web interface to execute queries and view results:
 streamlit run src/ui/sql_query_interface.py
 
