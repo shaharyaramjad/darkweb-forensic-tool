@@ -12,19 +12,13 @@ from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
-from src.llm.llm_classifier import classify_with_llm  # ✅ LLM summary integration
+from src.llm.llm_classifier import classify_with_llm
 import mysql.connector
 from dotenv import load_dotenv
 import pandas as pd
 
 # Load .env for database connection
 load_dotenv()
-
-# ========== SETTINGS ==========
-USE_LLM = False  # ✅ Toggle LLM ON/OFF
-USE_AI = False    # ✅ Toggle AI fallback ON/OFF
-TRANSLATE = False # ✅ Translate non-English content
-USE_SQL = True  # ✅ Toggle SQL insertion ON/OFF
 
 # Database connection config
 db_config = {
@@ -45,9 +39,20 @@ with tab1:
     uploaded_files = st.file_uploader("Upload HTML files", type="html", accept_multiple_files=True)
 
     st.subheader("Case Information")
-    case_id = st.text_input("Case ID")
+    # Generate auto case ID
+    case_id = int(datetime.now().strftime("%Y%m%d%H%M%S"))
+    st.text_input("Case ID (Auto-generated)", value=str(case_id), disabled=True)
     investigator = st.text_input("Investigator Name")
     notes = st.text_area("Case Description / Notes")
+
+    # ========== Analysis Options ==========
+    st.subheader("⚙️ Analysis Options")
+
+    USE_LLM = st.checkbox("Use LLM Summary", value=True)
+    USE_RAG = st.checkbox("Use RAG (knowledge-augmented fallback)", value=False)
+    USE_AI = st.checkbox("Use AI Model (StarPII, Zero-shot, etc.)", value=True)
+    TRANSLATE = st.checkbox("Translate non-English content", value=True)
+    USE_SQL = st.checkbox("Insert results into SQL database", value=True)
 
     # ========== Process Button ==========
     if st.button("Extract Data"):
@@ -55,7 +60,7 @@ with tab1:
             st.warning("Please upload at least one HTML file.")
         else:
             generated_reports = []  # Store generated report paths
-            
+
             for uploaded_file in uploaded_files:
                 file_name = uploaded_file.name
                 html_content = uploaded_file.read().decode("utf-8")
@@ -70,11 +75,12 @@ with tab1:
                 payments = extract_payment_addresses_from_html(
                     temp_path,
                     use_llm=USE_LLM,
+                    use_rag=USE_RAG,
                     use_ai=USE_AI,
                     translate=TRANSLATE
                 )
-                emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, translate=TRANSLATE)
-                keywords = detect_risk_keywords_from_html(temp_path,use_llm=USE_LLM,use_ai=USE_AI,translate=TRANSLATE)
+                emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, use_rag=USE_RAG, translate=TRANSLATE)
+                keywords = detect_risk_keywords_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
 
                 # LLM Summary
                 llm_summary = "LLM disabled."
@@ -97,14 +103,14 @@ with tab1:
                 # Generate reports and store paths
                 pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
                 json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
-                
+
                 generated_reports.append({
                     'file_name': file_name,
                     'base_name': base_name,
                     'pdf_path': pdf_path,
                     'json_path': json_path
                 })
-                
+
                 st.success(f"✅ {file_name} processed. PDF and JSON saved as: {base_name}")
                 if USE_SQL:
                     insert_into_db(
@@ -131,12 +137,12 @@ with tab1:
     if hasattr(st.session_state, 'reports_ready') and st.session_state.reports_ready:
         st.subheader("📥 Download Reports")
         st.info("Reports have been generated successfully! Click the buttons below to download them to your system.")
-        
+
         for report in st.session_state.generated_reports:
             st.write(f"**{report['file_name']}**")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 # Download PDF
                 if os.path.exists(report['pdf_path']):
@@ -150,7 +156,7 @@ with tab1:
                         )
                 else:
                     st.error("PDF report not found")
-            
+
             with col2:
                 # Download JSON
                 if os.path.exists(report['json_path']):
@@ -164,7 +170,7 @@ with tab1:
                         )
                 else:
                     st.error("JSON report not found")
-            
+
             st.divider()
 
     st.caption("📁 Reports are saved to the `reports/` directory.")
@@ -173,18 +179,15 @@ with tab1:
 with tab2:
     st.subheader("🧑‍💻 SQL Query Interface")
     st.info("Run SQL queries to analyze the forensic data stored in the database.")
-    
-    # Test database connection
+
     if st.button("🔗 Test Database Connection"):
         try:
             conn = mysql.connector.connect(**db_config)
             cursor = conn.cursor()
-            
-            # Test basic connection
+
             cursor.execute("SELECT 1")
             st.success("✅ Database connection successful!")
-            
-            # Show available tables
+
             cursor.execute("SHOW TABLES")
             tables = cursor.fetchall()
             if tables:
@@ -193,13 +196,13 @@ with tab2:
                     st.write(f"- {table[0]}")
             else:
                 st.warning("⚠️ No tables found in database. Make sure to run some forensic analysis first.")
-            
+
             cursor.close()
             conn.close()
-            
+
         except mysql.connector.Error as e:
             st.error(f"❌ Database connection failed: {e}")
-            st.info("💡 Make sure your .env file has the correct database credentials:")
+            st.info("💡 Make sure your .env file has correct credentials:")
             st.code("""
 DB_HOST=localhost
 DB_USER=your_username
@@ -208,24 +211,21 @@ DB_NAME=your_database_name
             """)
         except Exception as e:
             st.error(f"❌ Unexpected error: {e}")
-    
-    # Query input
-    # Initialize query from session state if available
+
     if 'selected_query' in st.session_state:
         default_query = st.session_state.selected_query
     else:
         default_query = ""
-    
+
     query = st.text_area("Write your SQL query here:", height=200, placeholder="SELECT * FROM case_metadata;", value=default_query, key="query_input")
-    
+
     col1, col2 = st.columns([1, 4])
     with col1:
         run_query = st.button("🔍 Run Query")
     with col2:
         if st.button("📋 Show Sample Queries"):
             st.session_state.show_samples = True
-    
-    # Show sample queries
+
     if hasattr(st.session_state, 'show_samples') and st.session_state.show_samples:
         st.subheader("📋 Sample Queries")
         sample_queries = {
@@ -287,10 +287,9 @@ LEFT JOIN extracted_payment_addresses p ON c.id = p.case_id
 LEFT JOIN risk_keywords k ON c.id = k.case_id
 ORDER BY c.id;"""
         }
-        
-        # Create columns for better organization
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.write("**🔍 Basic Queries**")
             basic_queries = ["View all cases", "High risk cases (score > 100)", "Recent cases (last 10)", "Cases by severity level"]
@@ -298,7 +297,7 @@ ORDER BY c.id;"""
                 if st.button(f"📝 {title}", key=f"sample_{title}"):
                     st.session_state.selected_query = sample_queries[title]
                     st.rerun()
-        
+
         with col2:
             st.write("**📊 Detailed Analysis**")
             detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info"]
@@ -306,46 +305,41 @@ ORDER BY c.id;"""
                 if st.button(f"📝 {title}", key=f"sample_{title}"):
                     st.session_state.selected_query = sample_queries[title]
                     st.rerun()
-        
+
         st.write("**🔬 Advanced Queries**")
         advanced_queries = ["Full details for specific case", "Complete forensic analysis (all data)"]
         for title in advanced_queries:
             if st.button(f"📝 {title}", key=f"sample_{title}"):
                 st.session_state.selected_query = sample_queries[title]
                 st.rerun()
-    
-    # Use the query from the text area
+
     query = st.session_state.query_input
-    
+
     if run_query:
         if not query.strip():
             st.warning("⚠️ Please enter a query before running.")
         else:
             try:
-                # Show the query being executed
                 st.write("**🔍 Executing query:**")
                 st.code(query)
-                
+
                 conn = mysql.connector.connect(**db_config)
                 cursor = conn.cursor()
 
                 cursor.execute(query)
 
-                # Fetch results if SELECT query
                 if query.strip().lower().startswith("select"):
                     rows = cursor.fetchall()
                     columns = cursor.column_names
-                    
+
                     if rows:
                         df = pd.DataFrame(rows, columns=columns)
-                        
+
                         st.subheader("📊 Query Results")
                         st.dataframe(df, use_container_width=True)
-                        
-                        # Show result summary
+
                         st.success(f"✅ Query returned {len(df)} rows with {len(df.columns)} columns")
-                        
-                        # Download results as CSV
+
                         csv_data = df.to_csv(index=False)
                         st.download_button(
                             label="📥 Download Results as CSV",
