@@ -86,7 +86,7 @@ TEXT:
         # Split by comma first
         raw_addresses = [addr.strip() for addr in llm_output.split(",") if addr.strip()]
 
-        # Extra cleanup: keep only strings matching your regex pattern
+        # Extra cleanup: keep only strings matching regex
         pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
         filtered_addresses = [addr for addr in raw_addresses if pattern.fullmatch(addr)]
 
@@ -95,8 +95,7 @@ TEXT:
     except Exception as e:
         return [f"❌ LLM Error: {e}"]
 
-
-def extract_payment_addresses_from_html(file_path, use_llm=True, use_ai=True, translate=True):
+def extract_payment_addresses_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
     matches = []
 
     try:
@@ -126,7 +125,7 @@ def extract_payment_addresses_from_html(file_path, use_llm=True, use_ai=True, tr
                         matches.append(ent.text.strip())
 
             # RAG + LLM fallback
-            if use_llm and not matches and TOGETHER_API_KEY:
+            if use_llm and use_rag and not matches and TOGETHER_API_KEY:
                 print(f"[LLM with RAG] Trying fallback on: {os.path.basename(file_path)}")
                 retrieved_context = retrieve_context(text)
                 llm_results = llm_fallback_classify(text, retrieved_context)

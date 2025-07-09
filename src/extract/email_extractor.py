@@ -64,7 +64,7 @@ def extract_emails(text):
     starpii_emails = extract_emails_with_starpii(text)
     return sorted(set(normal + obfuscated + starpii_emails))
 
-def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True):
+def extract_emails_from_html(filepath, use_ai=True, use_llm=True, use_rag=True, translate=True):
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         html = f.read()
 
@@ -101,7 +101,7 @@ def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True
         extracted = generic_email_re.findall(translated_text)
 
     # === RAG + LLM fallback ===
-    if use_llm and not extracted:
+    if use_llm and use_rag and not extracted:
         print("⚠️ No emails found. Trying RAG + LLM fallback...")
 
         try:
