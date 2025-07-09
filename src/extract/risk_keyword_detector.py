@@ -39,7 +39,7 @@ def retrieve_context(text, k=2):
     retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
     return "\n".join(retrieved_contexts)
 
-def detect_risk_keywords_from_html(filepath, use_llm=True, use_ai=True, translate=True):
+def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, translate=True):
     found_keywords = []
 
     try:
@@ -70,7 +70,7 @@ def detect_risk_keywords_from_html(filepath, use_llm=True, use_ai=True, translat
                         found_keywords.append(label)
 
             # === RAG + LLM fallback ===
-            if use_llm and not found_keywords and TOGETHER_API_KEY:
+            if use_llm and use_rag and not found_keywords and TOGETHER_API_KEY:
                 print("⚠️ No keywords found via AI. Trying RAG + LLM fallback...")
 
                 retrieved_context = retrieve_context(html_text)
