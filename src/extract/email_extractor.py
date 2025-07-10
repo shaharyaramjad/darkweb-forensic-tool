@@ -64,7 +64,7 @@ def extract_emails(text):
     starpii_emails = extract_emails_with_starpii(text)
     return sorted(set(normal + obfuscated + starpii_emails))
 
-def extract_emails_from_html(filepath, use_ai=True, use_llm=True, use_rag=True, translate=True):
+def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True, use_rag=True):
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         html = f.read()
 
@@ -102,17 +102,24 @@ def extract_emails_from_html(filepath, use_ai=True, use_llm=True, use_rag=True, 
 
     # === RAG + LLM fallback ===
     if use_llm and use_rag and not extracted:
-        print("⚠️ No emails found. Trying RAG + LLM fallback...")
+        print("⚠️ No emails found. Trying LLM fallback..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
 
         try:
-            retrieved_context = retrieve_context(translated_text)
-
-            llm_prompt = f"""
+            if use_rag:
+                retrieved_context = retrieve_context(translated_text)
+                llm_prompt = f"""
 Use the following knowledge base context to help you find suspicious or hidden email addresses.
 
 Knowledge base context:
 {retrieved_context}
 
+HTML CONTENT:
+{translated_text}
+
+Return a comma-separated list of email addresses only.
+"""
+            else:
+                llm_prompt = f"""
 HTML CONTENT:
 {translated_text}
 
@@ -125,7 +132,7 @@ Return a comma-separated list of email addresses only.
             llm_output = response.choices[0].message.content.strip()
             llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
             extracted = sorted(set(llm_emails))
-            print("✅ Emails extracted using RAG + LLM fallback.")
+            print("✅ Emails extracted using LLM fallback." + (" (with RAG context)" if use_rag else " (no RAG context)"))
         except Exception as e:
             print(f"❌ LLM fallback failed: {e}")
 

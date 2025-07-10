@@ -79,7 +79,7 @@ with tab1:
                     use_ai=USE_AI,
                     translate=TRANSLATE
                 )
-                emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, use_rag=USE_RAG, translate=TRANSLATE)
+                emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, translate=TRANSLATE, use_rag=USE_RAG)
                 keywords = detect_risk_keywords_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
 
                 # LLM Summary
