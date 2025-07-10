@@ -48,3 +48,6 @@ logs/
 *.tmp
 *.temp
 temp/
+
+dataset/*.csv
+dataset/*.csv.zip
