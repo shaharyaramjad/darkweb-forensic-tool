@@ -16,6 +16,8 @@ from src.llm.llm_classifier import classify_with_llm
 import mysql.connector
 from dotenv import load_dotenv
 import pandas as pd
+import json
+import glob
 
 # Load .env for database connection
 load_dotenv()
@@ -32,7 +34,7 @@ db_config = {
 st.title("🕵️‍♀️ Dark Web Forensic Report Tool")
 
 # Create tabs
-tab1, tab2 = st.tabs(["🔍 Forensic Analysis", "🧑‍💻 SQL Query Interface"])
+tab1, tab2, tab3 = st.tabs(["🔍 Forensic Analysis", "🧑‍💻 SQL Query Interface", "🛡️ Tampering Detection"])
 
 # ========== TAB 1: Forensic Analysis ==========
 with tab1:
@@ -367,3 +369,236 @@ ORDER BY c.id;"""
             except Exception as e:
                 st.error(f"❌ Unexpected error: {e}")
                 st.write("**Error details:**", str(e))
+
+# ========== TAB 3: Tampering Detection ==========
+with tab3:
+    st.subheader("🛡️ Tampering Detection")
+    st.info("Verify file integrity by comparing current file hashes with stored hashes in reports.")
+    
+    # Function to verify hash
+    def verify_hash(html_file_path, report_json_path):
+        try:
+            current_hash = calculate_sha256(html_file_path)
+            
+            with open(report_json_path, "r") as json_file:
+                report_data = json.load(json_file)
+                stored_hash = report_data.get("sha256_hash")
+            
+            return {
+                'file': os.path.basename(html_file_path),
+                'current_hash': current_hash,
+                'stored_hash': stored_hash,
+                'match': current_hash == stored_hash,
+                'status': "✅ Authentic" if current_hash == stored_hash else "🚨 TAMPERED"
+            }
+        except Exception as e:
+            return {
+                'file': os.path.basename(html_file_path),
+                'current_hash': "Error",
+                'stored_hash': "Error",
+                'match': False,
+                'status': f"❌ Error: {str(e)}"
+            }
+    
+    # Function to find matching reports
+    def find_matching_reports():
+        data_dir = "data"
+        reports_dir = "reports"
+        verification_results = []
+        
+        if not os.path.exists(data_dir):
+            return [], "❌ Data directory not found"
+        
+        if not os.path.exists(reports_dir):
+            return [], "❌ Reports directory not found"
+        
+        html_files = [f for f in os.listdir(data_dir) if f.endswith('.html')]
+        report_files = [f for f in os.listdir(reports_dir) if f.endswith('.json')]
+        
+        if not html_files:
+            return [], "❌ No HTML files found in data directory"
+        
+        if not report_files:
+            return [], "❌ No JSON reports found in reports directory"
+        
+        for html_file in html_files:
+            base_name = os.path.splitext(html_file)[0]
+            html_path = os.path.join(data_dir, html_file)
+            
+            # Find matching report
+            matching_report = None
+            for report_file in report_files:
+                if base_name in report_file:
+                    matching_report = os.path.join(reports_dir, report_file)
+                    break
+            
+            if matching_report:
+                result = verify_hash(html_path, matching_report)
+                verification_results.append(result)
+            else:
+                verification_results.append({
+                    'file': html_file,
+                    'current_hash': "N/A",
+                    'stored_hash': "N/A",
+                    'match': False,
+                    'status': "⚠️ No matching report found"
+                })
+        
+        return verification_results, None
+    
+    # UI for tampering detection
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        if st.button("🔍 Verify All Files", type="primary"):
+            with st.spinner("Verifying file integrity..."):
+                results, error = find_matching_reports()
+                
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state.verification_results = results
+                    st.success(f"✅ Verification completed for {len(results)} files")
+    
+    with col2:
+        if st.button("📊 Show Verification Summary"):
+            if hasattr(st.session_state, 'verification_results'):
+                results = st.session_state.verification_results
+                
+                # Count results
+                authentic_count = sum(1 for r in results if r['match'])
+                tampered_count = sum(1 for r in results if not r['match'] and 'Error' not in r['status'])
+                error_count = sum(1 for r in results if 'Error' in r['status'])
+                no_report_count = sum(1 for r in results if 'No matching report' in r['status'])
+                
+                # Display summary
+                st.subheader("📊 Verification Summary")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("✅ Authentic", authentic_count)
+                with col2:
+                    st.metric("🚨 Tampered", tampered_count)
+                with col3:
+                    st.metric("❌ Errors", error_count)
+                with col4:
+                    st.metric("⚠️ No Report", no_report_count)
+    
+    # Display detailed results
+    if hasattr(st.session_state, 'verification_results'):
+        st.subheader("🔍 Detailed Verification Results")
+        
+        # Create DataFrame for better display
+        results_df = pd.DataFrame(st.session_state.verification_results)
+        
+        # Color code the status column
+        def color_status(val):
+            if "✅ Authentic" in val:
+                return "background-color: #d4edda; color: #155724;"
+            elif "🚨 TAMPERED" in val:
+                return "background-color: #f8d7da; color: #721c24;"
+            elif "❌ Error" in val:
+                return "background-color: #fff3cd; color: #856404;"
+            else:
+                return "background-color: #d1ecf1; color: #0c5460;"
+        
+        # Display styled dataframe
+        st.dataframe(
+            results_df.style.applymap(color_status, subset=['status']),
+            use_container_width=True
+        )
+        
+        # Download results
+        csv_data = results_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Verification Results",
+            data=csv_data,
+            file_name="tampering_verification_results.csv",
+            mime="text/csv"
+        )
+        
+        # Show detailed hash comparison for tampered files
+        tampered_files = [r for r in st.session_state.verification_results if not r['match'] and 'Error' not in r['status']]
+        
+        if tampered_files:
+            st.subheader("🚨 Tampered Files Details")
+            st.warning("The following files have been modified since analysis:")
+            
+            for file_info in tampered_files:
+                with st.expander(f"🔍 {file_info['file']}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("**Current Hash:**")
+                        st.code(file_info['current_hash'])
+                    with col2:
+                        st.write("**Stored Hash:**")
+                        st.code(file_info['stored_hash'])
+                    
+                    st.error("⚠️ Hash mismatch detected! File may have been tampered with.")
+    
+    # Manual verification section
+    st.subheader("🔧 Manual Verification")
+    st.info("Manually verify a specific file against its report.")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        uploaded_file = st.file_uploader("Upload HTML file for verification", type="html")
+    
+    with col2:
+        uploaded_report = st.file_uploader("Upload JSON report file", type="json")
+    
+    if uploaded_file and uploaded_report:
+        if st.button("🔍 Verify This File"):
+            try:
+                # Save uploaded files temporarily
+                temp_html_path = os.path.join("data", uploaded_file.name)
+                temp_json_path = os.path.join("reports", uploaded_report.name)
+                
+                with open(temp_html_path, "wb") as f:
+                    f.write(uploaded_file.getvalue())
+                
+                with open(temp_json_path, "wb") as f:
+                    f.write(uploaded_report.getvalue())
+                
+                # Verify
+                result = verify_hash(temp_html_path, temp_json_path)
+                
+                # Display result
+                st.subheader("🔍 Verification Result")
+                
+                if result['match']:
+                    st.success("✅ File is authentic - no tampering detected!")
+                else:
+                    st.error("🚨 File has been tampered with!")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Current Hash:**")
+                    st.code(result['current_hash'])
+                with col2:
+                    st.write("**Stored Hash:**")
+                    st.code(result['stored_hash'])
+                
+                # Clean up temp files
+                os.remove(temp_html_path)
+                os.remove(temp_json_path)
+                
+            except Exception as e:
+                st.error(f"❌ Verification failed: {str(e)}")
+    
+    # Information section
+    st.subheader("ℹ️ About Tampering Detection")
+    st.info("""
+    **How it works:**
+    - Each HTML file is hashed using SHA-256 during analysis
+    - The hash is stored in the JSON report
+    - This tool compares current file hash with stored hash
+    - If hashes don't match, the file has been modified
+    
+    **Forensic importance:**
+    - Maintains chain of custody
+    - Ensures evidence integrity
+    - Critical for legal proceedings
+    - Prevents tampering accusations
+    """)

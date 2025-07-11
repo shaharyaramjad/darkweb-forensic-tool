@@ -49,5 +49,7 @@ logs/
 *.temp
 temp/
 
+# Dataset files (large files)
+dataset/
 dataset/*.csv
 dataset/*.csv.zip
