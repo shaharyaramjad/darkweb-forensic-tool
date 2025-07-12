@@ -9,7 +9,7 @@ from src.extract.extract_payment_addresses_from_html import extract_payment_addr
 import time
 from datetime import datetime
 import glob
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -132,16 +132,16 @@ def test_all_extraction_methods(filepath, page_name):
 def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     """Create a comprehensive PDF report with all extraction method comparisons"""
     
-    # Create PDF file
+    # Create PDF file with landscape orientation for better table fit
     pdf_filename = f"Comprehensive_Extraction_Methods_Report_{timestamp}.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=A4)
+    doc = SimpleDocTemplate(pdf_filename, pagesize=landscape(A4))
     styles = getSampleStyleSheet()
     
     # Custom styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=24,
+        fontSize=20,
         spaceAfter=30,
         alignment=TA_CENTER,
         textColor=colors.darkblue
@@ -150,7 +150,7 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading2'],
-        fontSize=16,
+        fontSize=14,
         spaceAfter=12,
         textColor=colors.darkred
     )
@@ -203,16 +203,141 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     story.append(Paragraph(summary_text, styles['Normal']))
     story.append(PageBreak())
     
-    # Detailed Results Table
+    # Detailed Results Tables - Split into separate tables for better formatting
     story.append(Paragraph("Detailed Results by Page", heading_style))
     story.append(Spacer(1, 12))
     
-    # Create table data
-    table_data = [['Page', 'Emails (AI)', 'Emails (RAG)', 'Emails (LLM)', 'Keywords (AI)', 'Keywords (RAG)', 'Keywords (LLM)', 'Payments (AI)', 'Payments (RAG)', 'Payments (LLM)']]
+    # Table 1: Email Extraction Results
+    story.append(Paragraph("Email Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    email_table_data = [['Page', 'AI+Regex', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        email_table_data.append([
+            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            str(len(result['emails_ai'])),
+            str(len(result['emails_rag'])),
+            str(len(result['emails_llm']))
+        ])
+    
+    email_table = Table(email_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    email_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(email_table)
+    story.append(Spacer(1, 15))
+    
+    # Table 2: Keyword Detection Results
+    story.append(Paragraph("Keyword Detection Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    keyword_table_data = [['Page', 'AI Zero-shot', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        keyword_table_data.append([
+            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            str(len(result['keywords_ai'])),
+            str(len(result['keywords_rag'])),
+            str(len(result['keywords_llm']))
+        ])
+    
+    keyword_table = Table(keyword_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    keyword_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(keyword_table)
+    story.append(Spacer(1, 15))
+    
+    # Table 3: Payment Extraction Results
+    story.append(Paragraph("Payment Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    payment_table_data = [['Page', 'Regex+spaCy', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        payment_table_data.append([
+            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            str(len(result['payments_ai'])),
+            str(len(result['payments_rag'])),
+            str(len(result['payments_llm']))
+        ])
+    
+    payment_table = Table(payment_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    payment_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(payment_table)
+    story.append(Spacer(1, 15))
+    
+    # Summary Table
+    story.append(Paragraph("Summary Statistics", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    summary_table_data = [
+        ['Method', 'Emails', 'Keywords', 'Payments', 'Total'],
+        ['AI Models', str(total_stats['emails_ai']), str(total_stats['keywords_ai']), str(total_stats['payments_ai']), 
+         str(total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai'])],
+        ['RAG+LLM', str(total_stats['emails_rag']), str(total_stats['keywords_rag']), str(total_stats['payments_rag']),
+         str(total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag'])],
+        ['LLM-only', str(total_stats['emails_llm']), str(total_stats['keywords_llm']), str(total_stats['payments_llm']),
+         str(total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm'])]
+    ]
+    
+    summary_table = Table(summary_table_data, colWidths=[1.5*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(summary_table)
+    story.append(Spacer(1, 15))
+    
+    # Comprehensive Results Table (Landscape format)
+    story.append(Paragraph("Comprehensive Results Comparison", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    # Create a more compact comprehensive table
+    comp_table_data = [['Page', 'AI Emails', 'RAG Emails', 'LLM Emails', 'AI Keywords', 'RAG Keywords', 'LLM Keywords', 'AI Payments', 'RAG Payments', 'LLM Payments']]
     
     for result in all_results:
-        table_data.append([
-            result['page'],
+        comp_table_data.append([
+            result['page'][:15] + '...' if len(result['page']) > 15 else result['page'],
             str(len(result['emails_ai'])),
             str(len(result['emails_rag'])),
             str(len(result['emails_llm'])),
@@ -224,21 +349,23 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
             str(len(result['payments_llm']))
         ])
     
-    # Create table
-    table = Table(table_data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+    # Use landscape orientation for this wide table
+    comp_table = Table(comp_table_data, colWidths=[1.2*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
+    comp_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.lightgreen, colors.white]),
     ]))
     
-    story.append(table)
+    story.append(comp_table)
     story.append(PageBreak())
     
     # Performance Analysis
@@ -249,6 +376,38 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     avg_ai_time = total_stats['total_ai_time'] / len(all_results)
     avg_rag_time = total_stats['total_rag_time'] / len(all_results)
     avg_llm_time = total_stats['total_llm_time'] / len(all_results)
+    
+    # Performance comparison table
+    story.append(Paragraph("Performance Comparison", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    perf_table_data = [
+        ['Metric', 'AI Models', 'RAG+LLM', 'LLM-only'],
+        ['Avg Time (sec)', f"{avg_ai_time:.2f}", f"{avg_rag_time:.2f}", f"{avg_llm_time:.2f}"],
+        ['Total Items', str(total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai']), 
+         str(total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag']),
+         str(total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm'])],
+        ['Emails Found', str(total_stats['emails_ai']), str(total_stats['emails_rag']), str(total_stats['emails_llm'])],
+        ['Keywords Found', str(total_stats['keywords_ai']), str(total_stats['keywords_rag']), str(total_stats['keywords_llm'])],
+        ['Payments Found', str(total_stats['payments_ai']), str(total_stats['payments_rag']), str(total_stats['payments_llm'])]
+    ]
+    
+    perf_table = Table(perf_table_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+    perf_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.lightcoral),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(perf_table)
+    story.append(Spacer(1, 15))
     
     performance_text = f"""
     <b>Processing Time Analysis:</b>

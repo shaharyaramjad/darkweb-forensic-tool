@@ -43,7 +43,13 @@ knowledge_texts = [
     "Monero addresses start with 4 and are about 95 characters long.",
     "Some dark web vendors use obfuscated addresses hidden in text or broken with spaces.",
     "Always check for long alphanumeric strings resembling crypto addresses when scanning dark web pages.",
-    "Litecoin addresses may start with L or M or ltc1."
+    "Litecoin addresses may start with L or M or ltc1.",
+    "Bitcoin Cash addresses start with bitcoincash: or q or p.",
+    "Dash addresses start with X and are 34 characters long.",
+    "Zcash addresses start with z or t and are 95 characters long.",
+    "Look for addresses in hidden elements, comments, or obfuscated text.",
+    "Vendors often use multiple payment methods: Bitcoin, Monero, Ethereum, Litecoin.",
+    "Some addresses may be split across multiple lines or contain spaces."
 ]
 
 # Embedding model
@@ -53,20 +59,32 @@ dimension = knowledge_embeddings.shape[1]
 index = faiss.IndexFlatL2(dimension)
 index.add(np.array(knowledge_embeddings))
 
-def retrieve_context(text, k=2):
+def retrieve_context(text, k=3):
     query_embedding = model.encode([text])
     distances, indices = index.search(np.array(query_embedding), k)
     retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
     return "\n".join(retrieved_contexts)
 
 def llm_fallback_classify(text, context):
-    prompt = f"""
+    if context:
+        prompt = f"""
 You are an AI trained to detect cryptocurrency or payment addresses in text.
 
 Use the following knowledge base context to help you.
 
 Knowledge base context:
 {context}
+
+Return only a single comma-separated list of payment addresses. 
+
+⚠️ Do NOT include explanations, bullet points, parentheses, or comments. No other text.
+
+TEXT:
+{text[:2000]}
+"""
+    else:
+        prompt = f"""
+You are an AI trained to detect cryptocurrency or payment addresses in text.
 
 Return only a single comma-separated list of payment addresses. 
 
@@ -106,30 +124,53 @@ def extract_payment_addresses_from_html(file_path, use_llm=True, use_rag=True, u
 
             # Detect language and translate if needed
             if translate:
-                lang = detect(text)
-                if lang != "en":
-                    trans = GoogleTranslator(source='auto', target='en')
-                    text = trans.translate(text)
-                    print(f"[Translator] Detected: {lang}, translated to English.")
+                try:
+                    lang = detect(text)
+                    if lang != "en":
+                        trans = GoogleTranslator(source='auto', target='en')
+                        text = trans.translate(text)
+                        print(f"[Translator] Detected: {lang}, translated to English.")
+                except Exception as e:
+                    print(f"⚠️ Translation failed: {e}")
 
-            # Regex
+            # Regex extraction
             pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
             regex_matches = pattern.findall(text)
             matches.extend(regex_matches)
+            
+            if regex_matches:
+                print("✅ Payment addresses found using regex patterns.")
 
-            # spaCy fallback
+            # spaCy AI fallback
             if use_ai and not matches:
-                doc = nlp(text)
-                for ent in doc.ents:
-                    if ent.label_ in ["MONEY", "CARDINAL"] and len(ent.text) > 10:
-                        matches.append(ent.text.strip())
+                try:
+                    doc = nlp(text)
+                    for ent in doc.ents:
+                        if ent.label_ in ["MONEY", "CARDINAL"] and len(ent.text) > 10:
+                            matches.append(ent.text.strip())
+                    
+                    if matches:
+                        print("✅ Payment addresses found using spaCy NER.")
+                except Exception as e:
+                    print(f"⚠️ spaCy extraction failed: {e}")
 
             # RAG + LLM fallback
-            if use_llm and use_rag and not matches and TOGETHER_API_KEY:
-                print(f"[LLM with RAG] Trying fallback on: {os.path.basename(file_path)}")
-                retrieved_context = retrieve_context(text)
-                llm_results = llm_fallback_classify(text, retrieved_context)
-                matches.extend(llm_results)
+            if use_llm and not matches:
+                print(f"⚠️ No payment addresses found. Trying LLM fallback..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+                
+                try:
+                    if use_rag:
+                        retrieved_context = retrieve_context(text)
+                        llm_results = llm_fallback_classify(text, retrieved_context)
+                    else:
+                        # LLM-only without RAG context
+                        llm_results = llm_fallback_classify(text, "")
+                    
+                    matches.extend(llm_results)
+                    if llm_results:
+                        print("✅ Payment addresses found using LLM fallback." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+                except Exception as e:
+                    print(f"❌ LLM fallback failed: {e}")
 
     except Exception as e:
         print(f"[ERROR] Failed to extract from {file_path}: {e}")

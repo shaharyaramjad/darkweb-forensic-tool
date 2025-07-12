@@ -63,18 +63,27 @@ def create_darkweb_forum_page(post_data, page_num):
         <div class="timestamp">{post_data.get('Date', 'Unknown')} {post_data.get('Time', '')}</div>
         <div class="content">
             {post_data.get('Post Content', 'No content available')}
+            
+            <!-- Additional test data for extraction methods -->
+            <p>For secure communication: secure(at)darkweb(dot)org</p>
+            <p>Payment address: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa</p>
+            <p>Keywords: drugs, weapons, hacking, fraud, money laundering</p>
         </div>
         
         <!-- Hidden contact info for testing -->
         <div class="hidden">
             Contact: vendor[at]protonmail[dot]com
             Backup: support(at)onionmail(dot)org
+            Escrow: escrow(at)darkmarket(dot)onion
+            Support: help(at)securemarket(dot)org
         </div>
         
         <!-- Obfuscated info -->
         <div class="obfuscated">
             For deals: ghost [at] tutanota [dot] com
             Secure: admin [ a t ] darkweb [ d o t ] market
+            Bitcoin: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+            Monero: 4A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0U1v2W3x4Y5z6
         </div>
     </div>
 </body>
@@ -156,6 +165,11 @@ def create_darkweb_marketplace_page(market_data, page_num):
         <div class="description">
             <h3>Product Description:</h3>
             {market_data.get('Item Description', 'No description available')}
+            
+            <!-- Additional test data for extraction methods -->
+            <p>Contact: {market_data.get('Vendor Username', 'vendor')}(at)secure(dot)market</p>
+            <p>Payment: 3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy</p>
+            <p>Keywords: illegal, contraband, restricted, dangerous, prohibited</p>
         </div>
         
         <div class="feedback">
@@ -167,12 +181,17 @@ def create_darkweb_marketplace_page(market_data, page_num):
         <div class="hidden">
             Contact: {market_data.get('Vendor Username', 'vendor')}[at]protonmail[dot]com
             Support: help(at)darkmarket(dot)org
+            Escrow: escrow(at)securemarket(dot)onion
+            Backup: backup(at)darkweb(dot)org
         </div>
         
         <!-- Obfuscated contact -->
         <div class="obfuscated">
             For orders: {market_data.get('Vendor Username', 'vendor')} [at] secure [dot] market
             Escrow: escrow [ a t ] {market_data.get('Market', 'market')} [dot] onion
+            Bitcoin: bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+            Monero: 4A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0U1v2W3x4Y5z6
+            Ethereum: 0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6
         </div>
     </div>
 </body>
@@ -191,14 +210,27 @@ def create_test_pages():
     print("📄 Creating forum pages...")
     try:
         forum_df = pd.read_csv('dataset/forum_data_part1.csv')
-        forum_df = forum_df[forum_df['Post Content'].notnull()].head(10)  # First 10 posts
+        # Filter for posts with meaningful content and select 3 diverse samples
+        forum_df = forum_df[forum_df['Post Content'].notnull()]
+        forum_df = forum_df[forum_df['Post Content'].str.len() > 50]  # Posts with substantial content
         
-        for i, row in forum_df.iterrows():
+        # Select 3 diverse samples: first, middle, and last
+        selected_forum = []
+        if len(forum_df) >= 3:
+            selected_forum = [
+                forum_df.iloc[0],  # First post
+                forum_df.iloc[len(forum_df)//2],  # Middle post
+                forum_df.iloc[-1]  # Last post
+            ]
+        else:
+            selected_forum = forum_df.head(3).to_dict('records')
+        
+        for i, row in enumerate(selected_forum):
             html_content = create_darkweb_forum_page(row, i+1)
             filename = f"forum_page_{i+1}.html"
             with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            print(f"✅ Created {filename}")
+            print(f"✅ Created {filename} with content length: {len(str(row.get('Post Content', '')))} chars")
     except Exception as e:
         print(f"⚠️ Error processing forum data: {e}")
     
@@ -206,18 +238,37 @@ def create_test_pages():
     print("\n🛒 Creating marketplace pages...")
     try:
         market_df = pd.read_csv('dataset/market_data_obfuscated.csv')
-        market_df = market_df[market_df['Item Description'].notnull()].head(10)  # First 10 listings
+        # Filter for listings with meaningful descriptions and select 3 diverse samples
+        market_df = market_df[market_df['Item Description'].notnull()]
+        market_df = market_df[market_df['Item Description'].str.len() > 30]  # Listings with substantial descriptions
         
-        for i, row in market_df.iterrows():
+        # Select 3 diverse samples: first, middle, and last
+        selected_market = []
+        if len(market_df) >= 3:
+            selected_market = [
+                market_df.iloc[0],  # First listing
+                market_df.iloc[len(market_df)//2],  # Middle listing
+                market_df.iloc[-1]  # Last listing
+            ]
+        else:
+            selected_market = market_df.head(3).to_dict('records')
+        
+        for i, row in enumerate(selected_market):
             html_content = create_darkweb_marketplace_page(row, i+1)
             filename = f"marketplace_page_{i+1}.html"
             with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            print(f"✅ Created {filename}")
+            print(f"✅ Created {filename} with description length: {len(str(row.get('Item Description', '')))} chars")
     except Exception as e:
         print(f"⚠️ Error processing marketplace data: {e}")
     
-    print(f"\n🎉 Created {len(os.listdir(output_dir))} test pages in {output_dir}/")
+    total_pages = len(os.listdir(output_dir))
+    print(f"\n🎉 Created {total_pages} test pages in {output_dir}/")
+    print(f"📊 Summary:")
+    print(f"   • Forum pages: 3 (with diverse content for testing)")
+    print(f"   • Marketplace pages: 3 (with diverse listings for testing)")
+    print(f"   • Total pages: {total_pages}")
+    print(f"   • Each page contains test data for email, payment, and keyword extraction")
     return output_dir
 
 if __name__ == "__main__":
