@@ -33,15 +33,58 @@ dimension = knowledge_embeddings.shape[1]
 index = faiss.IndexFlatL2(dimension)
 index.add(np.array(knowledge_embeddings))
 
-def retrieve_context(text, k=5):
-    query_embedding = model.encode([text])
-    distances, indices = index.search(np.array(query_embedding), k)
-    retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
-    return "\n".join(retrieved_contexts)
+def retrieve_context_self_adaptive(text, top_k=10, final_k=5, rationale=False, focus=None):
+    # Step 1: Retrieve top_k entries
+    query_text = text
+    if focus:
+        query_text += f"\n\nFocus: {focus}"
+    query_embedding = model.encode([query_text])
+    distances, indices = index.search(np.array(query_embedding), top_k)
+    candidate_contexts = [knowledge_texts[i] for i in indices[0]]
+    # Step 2: Use LLM to select the most relevant final_k entries, with rationale
+    selection_prompt = f"""
+Given the following knowledge base entries and the HTML/text content, select the {final_k} most relevant entries for keyword extraction. For each, return the number and a short rationale. Format: 1:reason,3:reason,5:reason
 
-def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, translate=True):
+Knowledge base entries:
+"""
+    for idx, entry in enumerate(candidate_contexts):
+        selection_prompt += f"{idx+1}. {entry}\n"
+    selection_prompt += f"\nHTML/TEXT Content:\n{text[:1000]}\n\nReturn format: 1:reason,3:reason,5:reason"
+    try:
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": selection_prompt}],
+            temperature=0.1,
+            max_tokens=100
+        )
+        llm_output = response.choices[0].message.content.strip()
+        # Parse output: e.g., "1:mentions drugs,3:mentions hacking,5:mentions fraud"
+        selected = []
+        rationales = []
+        for part in llm_output.split(","):
+            if ":" in part:
+                idx_str, reason = part.split(":", 1)
+                if idx_str.strip().isdigit():
+                    idx = int(idx_str.strip()) - 1
+                    if 0 <= idx < len(candidate_contexts):
+                        selected.append(idx)
+                        rationales.append((idx, reason.strip()))
+        selected_contexts = [candidate_contexts[i] for i in selected][:final_k]
+        if not selected_contexts:
+            selected_contexts = candidate_contexts[:final_k]
+        if rationale:
+            rationale_text = "\n".join([f"{i+1}: {candidate_contexts[i]}\n  Reason: {r}" for i, r in rationales])
+            return "\n".join(selected_contexts), rationale_text
+        return "\n".join(selected_contexts)
+    except Exception as e:
+        print(f"[Self-Adaptive RAG] LLM selection failed: {e}")
+        if rationale:
+            return "\n".join(candidate_contexts[:final_k]), "[LLM selection failed]"
+        return "\n".join(candidate_contexts[:final_k])
+
+def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, translate=True, min_keywords=5, max_loops=2):
     found_keywords = []
-
+    rationale_log = None
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             html_text = f.read()
@@ -77,13 +120,16 @@ def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=
                 except Exception as e:
                     print(f"⚠️ AI classification failed: {e}")
 
-            # === RAG + LLM enhancement ===
-            if use_llm:
-                print("🔍 Using LLM to enhance keyword detection..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
-
+            # === Self-Adaptive RAG + LLM enhancement (with iterative loop) ===
+            loop_count = 0
+            focus = None
+            while use_llm and (loop_count < max_loops):
+                print(f"🤖 [Loop {loop_count+1}] Using Self-Adaptive RAG+LLM for keyword detection..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
                 try:
                     if use_rag:
-                        retrieved_context = retrieve_context(html_text)
+                        retrieved_context, rationale_text = retrieve_context_self_adaptive(html_text, top_k=10, final_k=5, rationale=True, focus=focus)
+                        if rationale_text:
+                            print(f"[RAG Selection Rationales]:\n{rationale_text}")
                         prompt = f"""
 You are an expert dark web forensic analyst. Extract ALL risky keywords from the HTML content.
 
@@ -97,12 +143,6 @@ TASK: Find ALL risky keywords in the HTML content, including:
 4. Misspellings and variations
 5. Industry-specific terminology
 6. Hidden or obfuscated references
-
-EXAMPLES of what to look for:
-- Drug terms: meth, cocaine, heroin, weed, etc.
-- Weapon terms: guns, ammo, silencers, etc.
-- Hacking terms: exploit, malware, botnet, etc.
-- Fraud terms: stolen, fake, counterfeit, etc.
 
 HTML CONTENT:
 {html_text[:3000]}
@@ -160,10 +200,20 @@ Return format: keyword1,keyword2,keyword3,keyword4
                     found_keywords = list(set(all_keywords))  # Remove duplicates
                     
                     print(f"✅ Enhanced keyword detection completed. Found {len(found_keywords)} total keywords." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+
+                    # Iterative refinement: If too few keywords, re-run with new focus
+                    if len(found_keywords) < min_keywords and use_rag:
+                        print(f"[Self-Adaptive Loop] Only {len(found_keywords)} keywords found, refining retrieval...")
+                        # Use the LLM's output as new focus
+                        focus = f"Previously found: {', '.join(found_keywords)}. Try to find more or related keywords."
+                        loop_count += 1
+                        continue
+                    break
                 except Exception as e:
                     print(f"❌ LLM enhancement failed: {e}")
+                    break
 
     except Exception as e:
         print(f"❌ Error reading {filepath}: {e}")
 
-    return list(set(found_keywords))  # Remove duplicates
+    return list(set(found_keywords))  # Remove duplicates 
