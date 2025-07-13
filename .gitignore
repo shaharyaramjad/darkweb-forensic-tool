@@ -5,3 +5,10 @@ reports/*.json
 data/*.html
 .env
 venv/
+Comprehensive_Extraction_Methods_Report_*.pdf
+comprehensive_extraction_methods_*.csv
+Individual Project Report/
+data/darkweb_knowledge_base.json
+data/darkweb_test_pages/
+data/training_data.json
+dataset/
