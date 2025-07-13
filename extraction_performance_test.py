@@ -133,7 +133,6 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     """Create a comprehensive PDF report with all extraction method comparisons"""
     
     # Create testing_reports folder if it doesn't exist
-    import os
     testing_reports_dir = "data/testing_reports"
     os.makedirs(testing_reports_dir, exist_ok=True)
     
@@ -590,7 +589,6 @@ def comprehensive_test():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Create testing_reports folder if it doesn't exist
-    import os
     testing_reports_dir = "data/testing_reports"
     os.makedirs(testing_reports_dir, exist_ok=True)
     
