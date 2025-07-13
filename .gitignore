@@ -27,14 +27,14 @@ reports/*.json
 data/*.html
 data/darkweb_test_pages/
 
-
-# Model Files
+# Model Files (unused - removed from project)
 *.pkl
 *.h5
 *.model
 
 # IDE and OS Files
 .DS_Store
+**/.DS_Store
 .vscode/
 .idea/
 *.swp
@@ -53,3 +53,13 @@ temp/
 dataset/
 dataset/*.csv
 dataset/*.csv.zip
+
+# Output and data files
+Comprehensive_Extraction_Methods_Report_*.pdf
+comprehensive_extraction_methods_*.csv
+Individual Project Report/
+data/darkweb_knowledge_base.json
+data/darkweb_test_pages/
+data/training_data.json
+data/testing_reports/
+dataset/
