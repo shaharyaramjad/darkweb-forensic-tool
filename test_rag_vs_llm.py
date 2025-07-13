@@ -132,8 +132,13 @@ def test_all_extraction_methods(filepath, page_name):
 def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     """Create a comprehensive PDF report with all extraction method comparisons"""
     
+    # Create testing_reports folder if it doesn't exist
+    import os
+    testing_reports_dir = "data/testing_reports"
+    os.makedirs(testing_reports_dir, exist_ok=True)
+    
     # Create PDF file with landscape orientation for better table fit
-    pdf_filename = f"Comprehensive_Extraction_Methods_Report_{timestamp}.pdf"
+    pdf_filename = os.path.join(testing_reports_dir, f"Comprehensive_Extraction_Methods_Report_{timestamp}.pdf")
     doc = SimpleDocTemplate(pdf_filename, pagesize=landscape(A4))
     styles = getSampleStyleSheet()
     
@@ -583,7 +588,13 @@ def comprehensive_test():
     
     # Save detailed results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_file = f"comprehensive_extraction_methods_{timestamp}.csv"
+    
+    # Create testing_reports folder if it doesn't exist
+    import os
+    testing_reports_dir = "data/testing_reports"
+    os.makedirs(testing_reports_dir, exist_ok=True)
+    
+    results_file = os.path.join(testing_reports_dir, f"comprehensive_extraction_methods_{timestamp}.csv")
     
     df = pd.DataFrame(all_results)
     df.to_csv(results_file, index=False)
