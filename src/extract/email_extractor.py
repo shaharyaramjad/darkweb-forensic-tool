@@ -35,7 +35,12 @@ knowledge_texts = [
     "Dark web vendors use random strings and temporary domains for emails.",
     "Emails with hidden or obfuscated words such as user[at]domain[dot]com are common.",
     "Vendors often advertise contact emails in unusual formats to avoid detection.",
-    "Look for mentions of disposable emails or encrypted communication instructions."
+    "Look for mentions of disposable emails or encrypted communication instructions.",
+    "Common obfuscation patterns: [at] for @, [dot] for ., (at) for @, (dot) for .",
+    "Dark web vendors use temporary email services like 10minutemail, guerrillamail.",
+    "Look for email addresses in hidden divs, comments, or obfuscated text.",
+    "Vendors often use multiple contact methods: email, PGP, encrypted messaging.",
+    "Suspicious domains include .onion, .bit, and other alternative TLDs."
 ]
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -44,7 +49,7 @@ dimension = knowledge_embeddings.shape[1]
 index = faiss.IndexFlatL2(dimension)
 index.add(np.array(knowledge_embeddings))
 
-def retrieve_context(text, k=2):
+def retrieve_context(text, k=3):
     query_embedding = model.encode([text])
     distances, indices = index.search(np.array(query_embedding), k)
     retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
@@ -64,50 +69,55 @@ def extract_emails(text):
     starpii_emails = extract_emails_with_starpii(text)
     return sorted(set(normal + obfuscated + starpii_emails))
 
-def extract_emails_from_html(filepath, use_ai=True, use_llm=True, use_rag=True, translate=True):
-    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-        html = f.read()
-
-    # Extract visible text
-    soup = BeautifulSoup(html, 'html.parser')
-    text = soup.get_text(separator=' ')
-
-    # Detect language
+def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True, use_rag=True):
     try:
-        detected_lang = detect(text)
-    except:
-        detected_lang = "unknown"
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            html = f.read()
 
-    # Translate if needed
-    if translate and detected_lang != "en" and detected_lang != "unknown":
+        # Extract visible text
+        soup = BeautifulSoup(html, 'html.parser')
+        text = soup.get_text(separator=' ')
+
+        # Detect language
         try:
-            translated_text = GoogleTranslator(source='auto', target='en').translate(text)
-            print(f"🌐 Translated text from {detected_lang} to English.")
-        except Exception as e:
-            print(f"⚠️ Translation failed: {e}")
-            translated_text = text  # fallback
-    else:
-        translated_text = text
+            detected_lang = detect(text)
+        except:
+            detected_lang = "unknown"
 
-    # AI & regex extraction
-    extracted = []
-    if use_ai:
-        extracted = extract_emails(translated_text)
-        if extracted:
-            print("✅ Emails extracted using AI model & regex.")
+        # Translate if needed
+        if translate and detected_lang != "en" and detected_lang != "unknown":
+            try:
+                translated_text = GoogleTranslator(source='auto', target='en').translate(text)
+                print(f"🌐 Translated text from {detected_lang} to English.")
+            except Exception as e:
+                print(f"⚠️ Translation failed: {e}")
+                translated_text = text  # fallback
         else:
-            print("⚠️ No emails found using AI model & regex.")
-    else:
-        extracted = generic_email_re.findall(translated_text)
+            translated_text = text
 
-    # === RAG + LLM fallback ===
-    if use_llm and use_rag and not extracted:
-        print("⚠️ No emails found. Trying RAG + LLM fallback...")
+        # AI & regex extraction
+        extracted = []
+        if use_ai:
+            try:
+                extracted = extract_emails(translated_text)
+                if extracted:
+                    print("✅ Emails extracted using AI model & regex.")
+                else:
+                    print("⚠️ No emails found using AI model & regex.")
+            except Exception as e:
+                print(f"⚠️ AI extraction failed: {e}")
+                extracted = []
+        else:
+            extracted = generic_email_re.findall(translated_text)
 
-        try:
-            retrieved_context = retrieve_context(translated_text)
+        # === RAG + LLM fallback ===
+        if use_llm and not extracted:
+            print("⚠️ No emails found. Trying LLM fallback..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
 
-            llm_prompt = f"""
+            try:
+                if use_rag:
+                    retrieved_context = retrieve_context(translated_text)
+                    llm_prompt = f"""
 Use the following knowledge base context to help you find suspicious or hidden email addresses.
 
 Knowledge base context:
@@ -118,15 +128,26 @@ HTML CONTENT:
 
 Return a comma-separated list of email addresses only.
 """
-            response = client.chat.completions.create(
-                model="meta-llama/Llama-3-70b-chat-hf",
-                messages=[{"role": "user", "content": llm_prompt}],
-            )
-            llm_output = response.choices[0].message.content.strip()
-            llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
-            extracted = sorted(set(llm_emails))
-            print("✅ Emails extracted using RAG + LLM fallback.")
-        except Exception as e:
-            print(f"❌ LLM fallback failed: {e}")
+                else:
+                    llm_prompt = f"""
+HTML CONTENT:
+{translated_text}
 
-    return extracted
+Return a comma-separated list of email addresses only.
+"""
+                response = client.chat.completions.create(
+                    model="mistralai/Mixtral-8x7B-Instruct-v0.1",  # Consistent model
+                    messages=[{"role": "user", "content": llm_prompt}],
+                    temperature=0.1,
+                )
+                llm_output = response.choices[0].message.content.strip()
+                llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
+                extracted = sorted(set(llm_emails))
+                print("✅ Emails extracted using LLM fallback." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+            except Exception as e:
+                print(f"❌ LLM fallback failed: {e}")
+
+        return extracted
+    except Exception as e:
+        print(f"❌ Error processing {filepath}: {e}")
+        return []

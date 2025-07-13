@@ -1,14 +1,55 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Reports and Generated Files
 reports/*.pdf
 reports/*.json
+*.csv
+*.pdf
+*.json
+
+# Test Data and Generated Content
 data/*.html
-.env
-venv/
-Comprehensive_Extraction_Methods_Report_*.pdf
-comprehensive_extraction_methods_*.csv
-Individual Project Report/
-data/darkweb_knowledge_base.json
 data/darkweb_test_pages/
-data/training_data.json
+
+
+# Model Files
+*.pkl
+*.h5
+*.model
+
+# IDE and OS Files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+
+# Dataset files (large files)
 dataset/
+dataset/*.csv
+dataset/*.csv.zip

@@ -51,3 +51,32 @@ streamlit run src/ui/app.py
 ## Launch the standalone SQL web interface to execute queries and view results:
 streamlit run src/ui/sql_query_interface.py
 
+## 🧪 7. Testing & Data Generation
+
+## 7.1. Generate Test HTML Pages from Dataset
+# Create realistic dark web HTML pages from your dataset for testing:
+python create_darkweb_pages.py
+
+## 7.2. Run Comprehensive RAG vs LLM Testing
+# Test all extraction methods (AI Models, RAG+LLM, LLM-only) on all HTML pages:
+python test_rag_vs_llm.py
+
+## 7.3. Test Single File in Streamlit
+# Upload a test file in the Streamlit app and compare RAG vs LLM results
+# Recommended test file: data/darkweb_test_pages/forum_page_8.html
+
+## 📊 8. Understanding Test Results
+
+## 8.1. Test Output Files:
+- `comprehensive_extraction_methods_TIMESTAMP.csv` - Detailed results
+- `Comprehensive_Extraction_Methods_Report_TIMESTAMP.pdf` - Professional report
+
+## 8.2. What Each Method Tests:
+- **AI Models:** StarPII (emails), Zero-shot (keywords), spaCy (payments)
+- **RAG+LLM:** Knowledge-augmented LLM with dark web context
+- **LLM-only:** Standard LLM without knowledge base
+
+## 8.3. Expected Results:
+- RAG+LLM should find the most items (emails, keywords, payments)
+- AI Models are fastest but may miss complex patterns
+- LLM-only provides moderate improvement over AI Models
