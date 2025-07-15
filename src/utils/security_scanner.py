@@ -224,10 +224,10 @@ Size reduction: {scan_result.get('original_size', 0) - scan_result.get('sanitize
         
         return report
 
-def secure_file_processing(filepath: str, output_dir: str = "data/safe_files") -> Tuple[bool, str, str]:
+def secure_file_processing(filepath: str, output_dir: str = "data/safe_files") -> Tuple[bool, str, str, dict]:
     """
     Secure wrapper for file processing
-    Returns: (success, safe_filepath, security_report)
+    Returns: (success, safe_filepath, security_report, scan_result)
     """
     scanner = SecurityScanner()
     
@@ -246,4 +246,4 @@ def secure_file_processing(filepath: str, output_dir: str = "data/safe_files") -
     # Create safe copy
     success = scanner.create_safe_copy(filepath, safe_filepath)
     
-    return success, safe_filepath, security_report 
+    return success, safe_filepath, security_report, scan_result 

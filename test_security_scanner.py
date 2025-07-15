@@ -130,7 +130,7 @@ def test_secure_processing():
             print(f"\n📄 Processing: {os.path.basename(filepath)}")
             print("-" * 30)
             
-            success, safe_filepath, security_report = secure_file_processing(filepath)
+            success, safe_filepath, security_report, scan_result = secure_file_processing(filepath)
             
             if success:
                 print(f"✅ Processing successful")

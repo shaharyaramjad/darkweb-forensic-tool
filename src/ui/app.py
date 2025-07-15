@@ -77,7 +77,7 @@ with tab1:
                 # 🔒 SECURITY SCAN
                 if ENABLE_SECURITY_SCAN:
                     st.info(f"🛡️ Scanning {file_name} for malicious content...")
-                    success, safe_filepath, security_report = secure_file_processing(temp_path)
+                    success, safe_filepath, security_report, scan_result = secure_file_processing(temp_path)
                     
                     if not success:
                         st.error(f"❌ Security scan failed for {file_name}. Skipping file.")
@@ -87,7 +87,7 @@ with tab1:
                     with st.expander(f"🔒 Security Report for {file_name}"):
                         st.text(security_report)
                     
-                    if "safe_" in safe_filepath:
+                    if not scan_result['safe']:
                         st.warning(f"⚠️ Threats detected in {file_name}! Using sanitized version.")
                         temp_path = safe_filepath
                     else:

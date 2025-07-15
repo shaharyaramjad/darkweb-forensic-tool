@@ -43,7 +43,7 @@ for filename in os.listdir(directory):
         # 🔒 SECURITY SCAN
         if ENABLE_SECURITY_SCAN:
             print("🛡️ Running security scan...")
-            success, safe_filepath, security_report = secure_file_processing(filepath)
+            success, safe_filepath, security_report, scan_result = secure_file_processing(filepath)
             
             if not success:
                 print("❌ Security scan failed. Skipping file.")
@@ -51,7 +51,7 @@ for filename in os.listdir(directory):
                 
             print(security_report)
             
-            if "safe_" in safe_filepath:
+            if not scan_result['safe']:
                 print("⚠️ Threats detected! Using sanitized version.")
                 filepath = safe_filepath
             else:

@@ -55,7 +55,7 @@ def test_security_integration():
         # Test with a safe file
         test_file = "data/safe_test.html"
         if os.path.exists(test_file):
-            success, safe_filepath, security_report = secure_file_processing(test_file)
+            success, safe_filepath, security_report, scan_result = secure_file_processing(test_file)
             
             if success:
                 print("✅ Security integration test successful")
