@@ -26,6 +26,10 @@ reports/*.json
 # Test Data and Generated Content
 data/*.html
 data/darkweb_test_pages/
+data/safe_files/
+data/safe_*.html
+data/demo_*.html
+data/test_*.html
 
 # Model Files (unused - removed from project)
 *.pkl
@@ -63,3 +67,11 @@ data/darkweb_test_pages/
 data/training_data.json
 data/testing_reports/
 dataset/
+
+# HTML Files (Dark Web Content)
+*.html
+data/*.html
+data/safe_files/*.html
+data/demo_*.html
+data/test_*.html
+data/safe_*.html

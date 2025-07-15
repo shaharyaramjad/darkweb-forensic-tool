@@ -1,5 +1,8 @@
 import os
+import sys
 import random
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.utils.db_insert import insert_into_db
 from datetime import datetime
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
@@ -10,6 +13,7 @@ from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
 from src.llm.llm_classifier import classify_with_llm
+from src.utils.security_scanner import secure_file_processing
 
 # ===== Toggle Integrations =====
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
@@ -17,7 +21,7 @@ USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
 TRANSLATE = True     # 🔁 Enable or disable translation step
 USE_SQL = False  # 🔁 Set to False to disable MySQL insert
 USE_RAG = False
-
+ENABLE_SECURITY_SCAN = True  # 🔁 Enable security scanning
 
 # ===== Case metadata =====
 case_id = int(datetime.now().strftime("%Y%m%d%H%M%S") + f"{random.randint(10,99)}")
@@ -31,6 +35,29 @@ directory = 'data'
 for filename in os.listdir(directory):
     if filename.endswith(".html"):
         filepath = os.path.join(directory, filename)
+        
+        print(f"\n{'='*80}")
+        print(f"🔍 Processing: {filename}")
+        print(f"{'='*80}")
+
+        # 🔒 SECURITY SCAN
+        if ENABLE_SECURITY_SCAN:
+            print("🛡️ Running security scan...")
+            success, safe_filepath, security_report, scan_result = secure_file_processing(filepath)
+            
+            if not success:
+                print("❌ Security scan failed. Skipping file.")
+                continue
+                
+            print(security_report)
+            
+            if not scan_result['safe']:
+                print("⚠️ Threats detected! Using sanitized version.")
+                filepath = safe_filepath
+            else:
+                print("✅ File passed security scan.")
+        else:
+            print("⚠️ Security scanning disabled!")
 
         # Run extractors
         payment_addresses = extract_payment_addresses_from_html(
