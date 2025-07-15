@@ -13,6 +13,7 @@ from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
 from src.llm.llm_classifier import classify_with_llm
+from src.utils.security_scanner import secure_file_processing
 import mysql.connector
 from dotenv import load_dotenv
 import pandas as pd
@@ -55,6 +56,7 @@ with tab1:
     USE_AI = st.checkbox("Use AI Model (StarPII, Zero-shot, etc.)", value=True)
     TRANSLATE = st.checkbox("Translate non-English content", value=True)
     USE_SQL = st.checkbox("Insert results into SQL database", value=True)
+    ENABLE_SECURITY_SCAN = st.checkbox("🔒 Enable Security Scanning", value=True, help="Scan for malicious content before processing")
 
     # ========== Process Button ==========
     if st.button("Extract Data"):
@@ -71,6 +73,27 @@ with tab1:
                 temp_path = os.path.join("data", file_name)
                 with open(temp_path, "w", encoding="utf-8") as f:
                     f.write(html_content)
+
+                # 🔒 SECURITY SCAN
+                if ENABLE_SECURITY_SCAN:
+                    st.info(f"🛡️ Scanning {file_name} for malicious content...")
+                    success, safe_filepath, security_report = secure_file_processing(temp_path)
+                    
+                    if not success:
+                        st.error(f"❌ Security scan failed for {file_name}. Skipping file.")
+                        continue
+                    
+                    # Display security report
+                    with st.expander(f"🔒 Security Report for {file_name}"):
+                        st.text(security_report)
+                    
+                    if "safe_" in safe_filepath:
+                        st.warning(f"⚠️ Threats detected in {file_name}! Using sanitized version.")
+                        temp_path = safe_filepath
+                    else:
+                        st.success(f"✅ {file_name} passed security scan.")
+                else:
+                    st.warning("⚠️ Security scanning disabled!")
 
                 # Extraction
                 file_hash = calculate_sha256(temp_path)
