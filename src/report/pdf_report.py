@@ -6,7 +6,7 @@ import textwrap
 
 def generate_pdf_report(
     filename, hash_value, btc_list, email_list, keywords, score,
-    level, case_id, investigator, notes, llm_summary=""
+    level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
 ):
     os.makedirs("reports", exist_ok=True)
     report_filename = f"report_{filename.replace('.html', '')}.pdf"
@@ -35,6 +35,13 @@ def generate_pdf_report(
 
     draw_line(f"📄 File: {filename}", gap=25)
     draw_line(f"🔐 SHA-256: {hash_value}", gap=25)
+
+    # ─── Suspicious Prompts ──────────────────────────────────
+    if suspicious_prompts:
+        draw_line("⚠️ Suspicious Prompts Detected:", font="Helvetica-Bold", size=13, gap=20)
+        for prompt in suspicious_prompts:
+            draw_line(f"- {prompt}", indent=70, font="Helvetica", size=12, gap=18)
+        draw_line("", gap=10)
 
     # ─── Hybrid Detection Results ─────────────────────────────
     draw_line("💰 Payment Addresses:")

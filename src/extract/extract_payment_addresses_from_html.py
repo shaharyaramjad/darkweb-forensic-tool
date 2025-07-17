@@ -10,6 +10,7 @@ from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from src.extract.utils_visible_text import detect_suspicious_prompts
 
 # Regex pattern for common crypto/payment addresses
 payment_pattern = r"""
@@ -179,6 +180,12 @@ def extract_payment_addresses_from_html(file_path, use_llm=True, use_rag=True, u
             content = f.read()
             soup = BeautifulSoup(content, 'html.parser')
             text = soup.get_text()
+
+            # Detect suspicious prompt injection attempts
+            suspicious = detect_suspicious_prompts(content)
+            if suspicious:
+                print(f"⚠️ Suspicious prompt injection detected in {file_path}: {suspicious}")
+                # Optionally, you could log or return this for reporting
 
             # Detect language and translate if needed
             if translate:
