@@ -8,6 +8,8 @@ from langdetect import detect
 from deep_translator import GoogleTranslator
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Regex pattern for common crypto/payment addresses
 payment_pattern = r"""
@@ -43,7 +45,7 @@ knowledge_texts = [
     "Monero addresses start with 4 and are about 95 characters long.",
     "Some dark web vendors use obfuscated addresses hidden in text or broken with spaces.",
     "Always check for long alphanumeric strings resembling crypto addresses when scanning dark web pages.",
-    "Litecoin addresses may start with L or M or ltc1.",
+    "Litecoin addresses start with L or M or ltc1.",
     "Bitcoin Cash addresses start with bitcoincash: or q or p.",
     "Dash addresses start with X and are 34 characters long.",
     "Zcash addresses start with z or t and are 95 characters long.",
@@ -65,15 +67,38 @@ def retrieve_context(text, k=3):
     retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
     return "\n".join(retrieved_contexts)
 
-def llm_fallback_classify(text, context):
-    if context:
+def extract_with_regex(text):
+    """Extract payment addresses using regex patterns"""
+    try:
+        pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
+        matches = pattern.findall(text)
+        return {"method": "regex", "results": matches, "success": True}
+    except Exception as e:
+        return {"method": "regex", "results": [], "success": False, "error": str(e)}
+
+def extract_with_spacy(text):
+    """Extract payment addresses using spaCy NER"""
+    try:
+        doc = nlp(text)
+        matches = []
+        for ent in doc.ents:
+            if ent.label_ in ["MONEY", "CARDINAL"] and len(ent.text) > 10:
+                matches.append(ent.text.strip())
+        return {"method": "spacy", "results": matches, "success": True}
+    except Exception as e:
+        return {"method": "spacy", "results": [], "success": False, "error": str(e)}
+
+def extract_with_llm_rag(text):
+    """Extract payment addresses using LLM with RAG context"""
+    try:
+        retrieved_context = retrieve_context(text)
         prompt = f"""
 You are an AI trained to detect cryptocurrency or payment addresses in text.
 
 Use the following knowledge base context to help you.
 
 Knowledge base context:
-{context}
+{retrieved_context}
 
 Return only a single comma-separated list of payment addresses. 
 
@@ -82,7 +107,22 @@ Return only a single comma-separated list of payment addresses.
 TEXT:
 {text[:2000]}
 """
-    else:
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+        )
+        llm_output = response.choices[0].message.content.strip()
+        raw_addresses = [addr.strip() for addr in llm_output.split(",") if addr.strip()]
+        pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
+        filtered_addresses = [addr for addr in raw_addresses if pattern.fullmatch(addr)]
+        return {"method": "llm_rag", "results": filtered_addresses, "success": True}
+    except Exception as e:
+        return {"method": "llm_rag", "results": [], "success": False, "error": str(e)}
+
+def extract_with_llm_only(text):
+    """Extract payment addresses using LLM without RAG context"""
+    try:
         prompt = f"""
 You are an AI trained to detect cryptocurrency or payment addresses in text.
 
@@ -93,29 +133,47 @@ Return only a single comma-separated list of payment addresses.
 TEXT:
 {text[:2000]}
 """
-    try:
         response = client.chat.completions.create(
             model="mistralai/Mixtral-8x7B-Instruct-v0.1",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
         llm_output = response.choices[0].message.content.strip()
-
-        # Split by comma first
         raw_addresses = [addr.strip() for addr in llm_output.split(",") if addr.strip()]
-
-        # Extra cleanup: keep only strings matching regex
         pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
         filtered_addresses = [addr for addr in raw_addresses if pattern.fullmatch(addr)]
-
-        return filtered_addresses
-
+        return {"method": "llm_only", "results": filtered_addresses, "success": True}
     except Exception as e:
-        return [f"❌ LLM Error: {e}"]
+        return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
+
+def deduplicate_results(all_results):
+    """Deduplicate results from multiple methods"""
+    all_addresses = []
+    method_results = {}
+    
+    for result in all_results:
+        method = result["method"]
+        addresses = result["results"]
+        method_results[method] = addresses
+        all_addresses.extend(addresses)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_addresses = []
+    for addr in all_addresses:
+        if addr not in seen:
+            seen.add(addr)
+            unique_addresses.append(addr)
+    
+    return {
+        "unique_results": unique_addresses,
+        "method_results": method_results,
+        "total_found": len(unique_addresses)
+    }
 
 def extract_payment_addresses_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
-    matches = []
-
+    """Extract payment addresses using parallel processing and deduplication"""
+    
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
@@ -133,46 +191,68 @@ def extract_payment_addresses_from_html(file_path, use_llm=True, use_rag=True, u
                 except Exception as e:
                     print(f"⚠️ Translation failed: {e}")
 
-            # Regex extraction
-            pattern = re.compile(payment_pattern, re.VERBOSE | re.IGNORECASE)
-            regex_matches = pattern.findall(text)
-            matches.extend(regex_matches)
+            # Define extraction methods to run
+            extraction_methods = []
             
-            if regex_matches:
-                print("✅ Payment addresses found using regex patterns.")
+            # Always run regex (fastest and most reliable)
+            extraction_methods.append(("regex", lambda: extract_with_regex(text)))
+            
+            # Add AI methods if enabled
+            if use_ai:
+                extraction_methods.append(("spacy", lambda: extract_with_spacy(text)))
+            
+            # Add LLM methods if enabled
+            if use_llm:
+                if use_rag:
+                    extraction_methods.append(("llm_rag", lambda: extract_with_llm_rag(text)))
+                extraction_methods.append(("llm_only", lambda: extract_with_llm_only(text)))
 
-            # spaCy AI fallback
-            if use_ai and not matches:
-                try:
-                    doc = nlp(text)
-                    for ent in doc.ents:
-                        if ent.label_ in ["MONEY", "CARDINAL"] and len(ent.text) > 10:
-                            matches.append(ent.text.strip())
-                    
-                    if matches:
-                        print("✅ Payment addresses found using spaCy NER.")
-                except Exception as e:
-                    print(f"⚠️ spaCy extraction failed: {e}")
-
-            # RAG + LLM fallback
-            if use_llm and not matches:
-                print(f"⚠️ No payment addresses found. Trying LLM fallback..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+            # Run methods in parallel
+            all_results = []
+            start_time = time.time()
+            
+            with ThreadPoolExecutor(max_workers=len(extraction_methods)) as executor:
+                # Submit all tasks
+                future_to_method = {
+                    executor.submit(method_func): method_name 
+                    for method_name, method_func in extraction_methods
+                }
                 
-                try:
-                    if use_rag:
-                        retrieved_context = retrieve_context(text)
-                        llm_results = llm_fallback_classify(text, retrieved_context)
-                    else:
-                        # LLM-only without RAG context
-                        llm_results = llm_fallback_classify(text, "")
-                    
-                    matches.extend(llm_results)
-                    if llm_results:
-                        print("✅ Payment addresses found using LLM fallback." + (" (with RAG context)" if use_rag else " (no RAG context)"))
-                except Exception as e:
-                    print(f"❌ LLM fallback failed: {e}")
+                # Collect results as they complete
+                for future in as_completed(future_to_method):
+                    method_name = future_to_method[future]
+                    try:
+                        result = future.result()
+                        all_results.append(result)
+                        
+                        if result["success"]:
+                            print(f"✅ {method_name.upper()}: Found {len(result['results'])} addresses")
+                        else:
+                            print(f"❌ {method_name.upper()}: Failed - {result.get('error', 'Unknown error')}")
+                            
+                    except Exception as e:
+                        print(f"❌ {method_name.upper()}: Exception - {str(e)}")
+                        all_results.append({
+                            "method": method_name,
+                            "results": [],
+                            "success": False,
+                            "error": str(e)
+                        })
+
+            # Deduplicate results
+            final_results = deduplicate_results(all_results)
+            
+            processing_time = time.time() - start_time
+            print(f"⏱️ Parallel processing completed in {processing_time:.2f} seconds")
+            print(f"🎯 Total unique addresses found: {final_results['total_found']}")
+            
+            # Show method comparison
+            print("\n📊 Method Comparison:")
+            for method, addresses in final_results["method_results"].items():
+                print(f"  {method.upper()}: {len(addresses)} addresses")
+            
+            return final_results["unique_results"]
 
     except Exception as e:
         print(f"[ERROR] Failed to extract from {file_path}: {e}")
-
-    return list(filter(None, set(matches)))
+        return []

@@ -6,6 +6,9 @@ from deep_translator import GoogleTranslator
 from langdetect import detect
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import re
 
 # === LLM Client (Together.ai) ===
 TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
@@ -82,55 +85,31 @@ Knowledge base entries:
             return "\n".join(candidate_contexts[:final_k]), "[LLM selection failed]"
         return "\n".join(candidate_contexts[:final_k])
 
-def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, translate=True, min_keywords=5, max_loops=2):
-    found_keywords = []
-    rationale_log = None
+def extract_keywords_with_ai(text):
+    """Extract keywords using AI zero-shot classification"""
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            html_text = f.read()
+        candidate_labels = [
+            "drugs", "weapons", "hacking", "fraud", "child abuse",
+            "fake documents", "exploit", "ransomware", "credit card dump",
+            "botnet", "hitman", "forged passport", "zero-day"
+        ]
+        result = zero_shot_classifier(text, candidate_labels=candidate_labels, multi_label=True)
+        
+        keywords = []
+        for label, score in zip(result["labels"], result["scores"]):
+            if score > 0.5:
+                keywords.append(label)
+        
+        return {"method": "ai_zero_shot", "results": keywords, "success": True}
+    except Exception as e:
+        return {"method": "ai_zero_shot", "results": [], "success": False, "error": str(e)}
 
-            # === Language detection and translation ===
-            if translate:
-                try:
-                    lang = detect(html_text)
-                    if lang != "en":
-                        html_text = GoogleTranslator(source='auto', target='en').translate(html_text)
-                        print(f"🌐 Translated content from {lang} to English.")
-                except Exception as e:
-                    print(f"⚠️ Language detection/translation error: {e}")
-
-            # === AI Zero-shot classification check ===
-            if use_ai:
-                try:
-                    candidate_labels = [
-                        "drugs", "weapons", "hacking", "fraud", "child abuse",
-                        "fake documents", "exploit", "ransomware", "credit card dump",
-                        "botnet", "hitman", "forged passport", "zero-day"
-                    ]
-                    result = zero_shot_classifier(html_text, candidate_labels=candidate_labels, multi_label=True)
-
-                    for label, score in zip(result["labels"], result["scores"]):
-                        if score > 0.5:
-                            found_keywords.append(label)
-                    
-                    if found_keywords:
-                        print(f"✅ AI zero-shot classification found {len(found_keywords)} category matches.")
-                    else:
-                        print("⚠️ No keywords found using AI zero-shot classification.")
-                except Exception as e:
-                    print(f"⚠️ AI classification failed: {e}")
-
-            # === Self-Adaptive RAG + LLM enhancement (with iterative loop) ===
-            loop_count = 0
-            focus = None
-            while use_llm and (loop_count < max_loops):
-                print(f"🤖 [Loop {loop_count+1}] Using Self-Adaptive RAG+LLM for keyword detection..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
-                try:
-                    if use_rag:
-                        retrieved_context, rationale_text = retrieve_context_self_adaptive(html_text, top_k=10, final_k=5, rationale=True, focus=focus)
-                        if rationale_text:
-                            print(f"[RAG Selection Rationales]:\n{rationale_text}")
-                        prompt = f"""
+def extract_keywords_with_llm_rag(text):
+    """Extract keywords using LLM with RAG context"""
+    try:
+        retrieved_context, rationale_text = retrieve_context_self_adaptive(text, top_k=10, final_k=5, rationale=True)
+        
+        prompt = f"""
 You are an expert dark web forensic analyst. Extract ALL risky keywords from the HTML content.
 
 KNOWLEDGE BASE (use these as examples to find similar terms):
@@ -145,13 +124,38 @@ TASK: Find ALL risky keywords in the HTML content, including:
 6. Hidden or obfuscated references
 
 HTML CONTENT:
-{html_text[:3000]}
+{text[:3000]}
 
 Return ONLY a comma-separated list of keywords. NO explanations or extra text.
 Format: keyword1,keyword2,keyword3,keyword4
 """
-                    else:
-                        prompt = f"""
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=500
+        )
+        llm_output = response.choices[0].message.content.strip()
+        raw_keywords = [kw.strip().lower() for kw in llm_output.split(",") if kw.strip()]
+        
+        # Enhanced cleanup: Remove sentences, keep only valid keywords
+        cleaned_keywords = []
+        for kw in raw_keywords:
+            # Remove common sentence starters
+            if kw.startswith(('the ', 'a ', 'an ', 'and ', 'or ', 'but ', 'in ', 'on ', 'at ', 'to ', 'for ', 'of ', 'with ', 'by ')):
+                continue
+            # Keep only single words or short phrases
+            if len(kw) < 50 and not kw.endswith('.') and not kw.endswith('!') and not kw.endswith('?'):
+                cleaned_keywords.append(kw)
+        
+        return {"method": "llm_rag", "results": cleaned_keywords, "success": True}
+    except Exception as e:
+        return {"method": "llm_rag", "results": [], "success": False, "error": str(e)}
+
+def extract_keywords_with_llm_only(text):
+    """Extract keywords using LLM without RAG context"""
+    try:
+        prompt = f"""
 You are an expert dark web forensic analyst. Extract ALL risky keywords from the HTML content.
 
 Look for keywords related to:
@@ -169,51 +173,186 @@ INSTRUCTIONS:
 5. NO explanations, sentences, or extra text
 
 HTML CONTENT:
-{html_text[:3000]}
+{text[:3000]}
 
 Return format: keyword1,keyword2,keyword3,keyword4
 """
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=500
+        )
+        llm_output = response.choices[0].message.content.strip()
+        raw_keywords = [kw.strip().lower() for kw in llm_output.split(",") if kw.strip()]
+        
+        # Enhanced cleanup: Remove sentences, keep only valid keywords
+        cleaned_keywords = []
+        for kw in raw_keywords:
+            # Remove common sentence starters
+            if kw.startswith(('the ', 'a ', 'an ', 'and ', 'or ', 'but ', 'in ', 'on ', 'at ', 'to ', 'for ', 'of ', 'with ', 'by ')):
+                continue
+            # Keep only single words or short phrases
+            if len(kw) < 50 and not kw.endswith('.') and not kw.endswith('!') and not kw.endswith('?'):
+                cleaned_keywords.append(kw)
+        
+        return {"method": "llm_only", "results": cleaned_keywords, "success": True}
+    except Exception as e:
+        return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
 
-                    response = client.chat.completions.create(
-                        model="mistralai/Mixtral-8x7B-Instruct-v0.1",
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.2,
-                        max_tokens=500
-                    )
-                    llm_output = response.choices[0].message.content.strip()
+def deduplicate_results(all_results):
+    """Deduplicate results from multiple methods"""
+    all_keywords = []
+    method_results = {}
+    
+    for result in all_results:
+        method = result["method"]
+        keywords = result["results"]
+        method_results[method] = keywords
+        all_keywords.extend(keywords)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_keywords = []
+    for keyword in all_keywords:
+        if keyword not in seen:
+            seen.add(keyword)
+            unique_keywords.append(keyword)
+    
+    return {
+        "unique_results": unique_keywords,
+        "method_results": method_results,
+        "total_found": len(unique_keywords)
+    }
 
-                    # Split by comma and clean
-                    raw_keywords = [kw.strip().lower() for kw in llm_output.split(",") if kw.strip()]
-                    
-                    # Enhanced cleanup: Remove sentences, keep only valid keywords
-                    cleaned_keywords = []
-                    for kw in raw_keywords:
-                        # Remove common sentence starters
-                        if kw.startswith(('the ', 'a ', 'an ', 'and ', 'or ', 'but ', 'in ', 'on ', 'at ', 'to ', 'for ', 'of ', 'with ', 'by ')):
-                            continue
-                        # Keep only single words or short phrases
-                        if len(kw) < 50 and not kw.endswith('.') and not kw.endswith('!') and not kw.endswith('?'):
-                            cleaned_keywords.append(kw)
+def clean_keywords(keyword_list):
+    """Clean and filter keywords to remove irrelevant content"""
+    cleaned = []
+    
+    # Patterns to exclude
+    email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    obfuscated_email_pattern = re.compile(r'.*[\[\(]at[\]\)].*[\[\(]dot[\]\)].*')
+    payment_pattern = re.compile(r'^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,}$')
+    domain_pattern = re.compile(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+    
+    for keyword in keyword_list:
+        # Skip if it's an email address
+        if email_pattern.match(keyword) or obfuscated_email_pattern.match(keyword):
+            continue
+            
+        # Skip if it's a payment address
+        if payment_pattern.match(keyword):
+            continue
+            
+        # Skip if it's a domain name
+        if domain_pattern.match(keyword):
+            continue
+            
+        # Skip if it's too short (likely not meaningful)
+        if len(keyword) < 3:
+            continue
+            
+        # Skip if it's too long (likely a sentence or explanation)
+        if len(keyword) > 50:
+            continue
+            
+        # Skip if it contains spaces (likely a phrase or sentence)
+        if ' ' in keyword:
+            continue
+            
+        # Skip common irrelevant terms
+        if keyword.lower() in ['btc', 'usd', 'eur', 'gbp', 'jpy', 'cad', 'aud', 'chf', 'cny', 'inr', 'brl', 'mxn', 'krw', 'sgd', 'hkd', 'nzd', 'sek', 'nok', 'dkk', 'pln', 'czk', 'huf', 'ron', 'hrk', 'bgm', 'bgn', 'all', 'amd', 'azn', 'bam', 'byn', 'gel', 'kzt', 'kgs', 'mdl', 'mkd', 'rsd', 'tjs', 'tmt', 'uah', 'uzs', 'xcd', 'xof', 'xpf', 'yer', 'zmw', 'zwl']:
+            continue
+            
+        # Skip if it's just a number or currency code
+        if keyword.isdigit() or (len(keyword) <= 3 and keyword.isupper()):
+            continue
+            
+        # Skip if it's a common file extension or technical term
+        if keyword.lower() in ['.onion', '.org', '.com', '.net', '.io', '.co', '.me', '.tv', '.cc', '.ws', '.biz', '.info', '.name', '.pro', '.aero', '.coop', '.museum', '.jobs', '.mobi', '.travel', '.cat', '.asia', '.tel', '.xxx', '.post', '.int', '.edu', '.gov', '.mil']:
+            continue
+            
+        cleaned.append(keyword)
+    
+    return cleaned
 
-                    # Combine AI and LLM results
-                    all_keywords = found_keywords + cleaned_keywords
-                    found_keywords = list(set(all_keywords))  # Remove duplicates
-                    
-                    print(f"✅ Enhanced keyword detection completed. Found {len(found_keywords)} total keywords." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, translate=True, min_keywords=5, max_loops=2):
+    """Extract risk keywords using parallel processing and deduplication"""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            html_text = f.read()
 
-                    # Iterative refinement: If too few keywords, re-run with new focus
-                    if len(found_keywords) < min_keywords and use_rag:
-                        print(f"[Self-Adaptive Loop] Only {len(found_keywords)} keywords found, refining retrieval...")
-                        # Use the LLM's output as new focus
-                        focus = f"Previously found: {', '.join(found_keywords)}. Try to find more or related keywords."
-                        loop_count += 1
-                        continue
-                    break
+            # === Language detection and translation ===
+            if translate:
+                try:
+                    lang = detect(html_text)
+                    if lang != "en":
+                        html_text = GoogleTranslator(source='auto', target='en').translate(html_text)
+                        print(f"🌐 Translated content from {lang} to English.")
                 except Exception as e:
-                    print(f"❌ LLM enhancement failed: {e}")
-                    break
+                    print(f"⚠️ Language detection/translation error: {e}")
+
+            # Define extraction methods to run
+            extraction_methods = []
+            
+            # Add AI methods if enabled
+            if use_ai:
+                extraction_methods.append(("ai_zero_shot", lambda: extract_keywords_with_ai(html_text)))
+            
+            # Add LLM methods if enabled
+            if use_llm:
+                if use_rag:
+                    extraction_methods.append(("llm_rag", lambda: extract_keywords_with_llm_rag(html_text)))
+                extraction_methods.append(("llm_only", lambda: extract_keywords_with_llm_only(html_text)))
+
+            # Run methods in parallel
+            all_results = []
+            start_time = time.time()
+            
+            with ThreadPoolExecutor(max_workers=len(extraction_methods)) as executor:
+                # Submit all tasks
+                future_to_method = {
+                    executor.submit(method_func): method_name 
+                    for method_name, method_func in extraction_methods
+                }
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_method):
+                    method_name = future_to_method[future]
+                    try:
+                        result = future.result()
+                        all_results.append(result)
+                        
+                        if result["success"]:
+                            print(f"✅ {method_name.upper()}: Found {len(result['results'])} keywords")
+                        else:
+                            print(f"❌ {method_name.upper()}: Failed - {result.get('error', 'Unknown error')}")
+                            
+                    except Exception as e:
+                        print(f"❌ {method_name.upper()}: Exception - {str(e)}")
+                        all_results.append({
+                            "method": method_name,
+                            "results": [],
+                            "success": False,
+                            "error": str(e)
+                        })
+
+            # Deduplicate results
+            final_results = deduplicate_results(all_results)
+            
+            processing_time = time.time() - start_time
+            print(f"⏱️ Parallel processing completed in {processing_time:.2f} seconds")
+            print(f"🎯 Total unique keywords found: {final_results['total_found']}")
+            
+            # Show method comparison
+            print("\n📊 Method Comparison:")
+            for method, keywords in final_results["method_results"].items():
+                print(f"  {method.upper()}: {len(keywords)} keywords")
+            
+            # Clean keywords before returning
+            cleaned_keywords = clean_keywords(final_results["unique_results"])
+            return cleaned_keywords
 
     except Exception as e:
         print(f"❌ Error reading {filepath}: {e}")
-
-    return list(set(found_keywords))  # Remove duplicates 
+        return [] 

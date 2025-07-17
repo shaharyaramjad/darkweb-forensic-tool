@@ -59,7 +59,7 @@ python create_darkweb_pages.py
 
 ## 7.2. Run Comprehensive RAG vs LLM Testing
 # Test all extraction methods (AI Models, RAG+LLM, LLM-only) on all HTML pages:
-python test_rag_vs_llm.py
+python extraction_performance_test.py  
 
 ## 7.3. Test Single File in Streamlit
 # Upload a test file in the Streamlit app and compare RAG vs LLM results

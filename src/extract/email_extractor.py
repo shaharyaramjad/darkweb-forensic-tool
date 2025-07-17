@@ -8,6 +8,8 @@ from langdetect import detect
 from deep_translator import GoogleTranslator
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # === Together.ai LLM ===
 TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
@@ -55,21 +57,122 @@ def retrieve_context(text, k=3):
     retrieved_contexts = [knowledge_texts[i] for i in indices[0]]
     return "\n".join(retrieved_contexts)
 
-def extract_emails_with_starpii(text):
-    result = pii_client.token_classification(text, model="bigcode/starpii")
-    emails = []
-    for entity in result:
-        if entity['entity_group'].lower() == 'email':
-            emails.append(entity['word'])
-    return emails
+def extract_emails_with_regex(text):
+    """Extract emails using regex patterns"""
+    try:
+        normal = generic_email_re.findall(text)
+        obfuscated = [f"{m[0]}@{m[1]}.{m[2]}" for m in obfuscated_email_re.findall(text)]
+        return {"method": "regex", "results": normal + obfuscated, "success": True}
+    except Exception as e:
+        return {"method": "regex", "results": [], "success": False, "error": str(e)}
 
-def extract_emails(text):
-    normal = generic_email_re.findall(text)
-    obfuscated = [f"{m[0]}@{m[1]}.{m[2]}" for m in obfuscated_email_re.findall(text)]
-    starpii_emails = extract_emails_with_starpii(text)
-    return sorted(set(normal + obfuscated + starpii_emails))
+def extract_emails_with_starpii(text):
+    """Extract emails using StarPII AI model"""
+    try:
+        result = pii_client.token_classification(text, model="bigcode/starpii")
+        emails = []
+        for entity in result:
+            if entity['entity_group'].lower() == 'email':
+                emails.append(entity['word'])
+        return {"method": "starpii", "results": emails, "success": True}
+    except Exception as e:
+        return {"method": "starpii", "results": [], "success": False, "error": str(e)}
+
+def extract_emails_with_llm_rag(text):
+    """Extract emails using LLM with RAG context"""
+    try:
+        retrieved_context = retrieve_context(text)
+        llm_prompt = f"""
+Use the following knowledge base context to help you find suspicious or hidden email addresses.
+
+Knowledge base context:
+{retrieved_context}
+
+HTML CONTENT:
+{text}
+
+Return a comma-separated list of email addresses only.
+"""
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": llm_prompt}],
+            temperature=0.1,
+        )
+        llm_output = response.choices[0].message.content.strip()
+        llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
+        return {"method": "llm_rag", "results": llm_emails, "success": True}
+    except Exception as e:
+        return {"method": "llm_rag", "results": [], "success": False, "error": str(e)}
+
+def extract_emails_with_llm_only(text):
+    """Extract emails using LLM without RAG context"""
+    try:
+        llm_prompt = f"""
+HTML CONTENT:
+{text}
+
+Return a comma-separated list of email addresses only.
+"""
+        response = client.chat.completions.create(
+            model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+            messages=[{"role": "user", "content": llm_prompt}],
+            temperature=0.1,
+        )
+        llm_output = response.choices[0].message.content.strip()
+        llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
+        return {"method": "llm_only", "results": llm_emails, "success": True}
+    except Exception as e:
+        return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
+
+def deduplicate_results(all_results):
+    """Deduplicate results from multiple methods"""
+    all_emails = []
+    method_results = {}
+    
+    for result in all_results:
+        method = result["method"]
+        emails = result["results"]
+        method_results[method] = emails
+        all_emails.extend(emails)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_emails = []
+    for email in all_emails:
+        if email not in seen:
+            seen.add(email)
+            unique_emails.append(email)
+    
+    return {
+        "unique_results": unique_emails,
+        "method_results": method_results,
+        "total_found": len(unique_emails)
+    }
+
+def clean_emails(email_list):
+    cleaned = []
+    for email in email_list:
+        # Remove markdown links
+        if re.match(r'^\[.*\]\(.*\)$', email):
+            continue
+        # Remove explanations or sentences
+        if any(phrase in email.lower() for phrase in [
+            'i have', 'as well as', 'can be used', 'certain contexts', 'why', 'included', 'note that', 'these are not', 'however', 'please note', 'assuming that', 'crooks', 'email addresses found in the bitcoin', 'monero addresses']):
+            continue
+        # Remove emails with spaces or too long
+        if ' ' in email or len(email) > 60:
+            continue
+        # Remove crypto-address-like emails
+        local = email.split('@')[0]
+        if re.match(r'^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,}', local):
+            continue
+        if email.endswith('@bitcoinmail.org') or email.endswith('@moneromail.org'):
+            continue
+        cleaned.append(email)
+    return cleaned
 
 def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True, use_rag=True):
+    """Extract emails using parallel processing and deduplication"""
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             html = f.read()
@@ -95,59 +198,70 @@ def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True
         else:
             translated_text = text
 
-        # AI & regex extraction
-        extracted = []
+        # Define extraction methods to run
+        extraction_methods = []
+        
+        # Always run regex (fastest and most reliable)
+        extraction_methods.append(("regex", lambda: extract_emails_with_regex(translated_text)))
+        
+        # Add AI methods if enabled
         if use_ai:
-            try:
-                extracted = extract_emails(translated_text)
-                if extracted:
-                    print("✅ Emails extracted using AI model & regex.")
-                else:
-                    print("⚠️ No emails found using AI model & regex.")
-            except Exception as e:
-                print(f"⚠️ AI extraction failed: {e}")
-                extracted = []
-        else:
-            extracted = generic_email_re.findall(translated_text)
+            extraction_methods.append(("starpii", lambda: extract_emails_with_starpii(translated_text)))
+        
+        # Add LLM methods if enabled
+        if use_llm:
+            if use_rag:
+                extraction_methods.append(("llm_rag", lambda: extract_emails_with_llm_rag(translated_text)))
+            extraction_methods.append(("llm_only", lambda: extract_emails_with_llm_only(translated_text)))
 
-        # === RAG + LLM fallback ===
-        if use_llm and not extracted:
-            print("⚠️ No emails found. Trying LLM fallback..." + (" (with RAG context)" if use_rag else " (no RAG context)"))
+        # Run methods in parallel
+        all_results = []
+        start_time = time.time()
+        
+        with ThreadPoolExecutor(max_workers=len(extraction_methods)) as executor:
+            # Submit all tasks
+            future_to_method = {
+                executor.submit(method_func): method_name 
+                for method_name, method_func in extraction_methods
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_method):
+                method_name = future_to_method[future]
+                try:
+                    result = future.result()
+                    all_results.append(result)
+                    
+                    if result["success"]:
+                        print(f"✅ {method_name.upper()}: Found {len(result['results'])} emails")
+                    else:
+                        print(f"❌ {method_name.upper()}: Failed - {result.get('error', 'Unknown error')}")
+                        
+                except Exception as e:
+                    print(f"❌ {method_name.upper()}: Exception - {str(e)}")
+                    all_results.append({
+                        "method": method_name,
+                        "results": [],
+                        "success": False,
+                        "error": str(e)
+                    })
 
-            try:
-                if use_rag:
-                    retrieved_context = retrieve_context(translated_text)
-                    llm_prompt = f"""
-Use the following knowledge base context to help you find suspicious or hidden email addresses.
-
-Knowledge base context:
-{retrieved_context}
-
-HTML CONTENT:
-{translated_text}
-
-Return a comma-separated list of email addresses only.
-"""
-                else:
-                    llm_prompt = f"""
-HTML CONTENT:
-{translated_text}
-
-Return a comma-separated list of email addresses only.
-"""
-                response = client.chat.completions.create(
-                    model="mistralai/Mixtral-8x7B-Instruct-v0.1",  # Consistent model
-                    messages=[{"role": "user", "content": llm_prompt}],
-                    temperature=0.1,
-                )
-                llm_output = response.choices[0].message.content.strip()
-                llm_emails = [email.strip() for email in llm_output.split(",") if email.strip()]
-                extracted = sorted(set(llm_emails))
-                print("✅ Emails extracted using LLM fallback." + (" (with RAG context)" if use_rag else " (no RAG context)"))
-            except Exception as e:
-                print(f"❌ LLM fallback failed: {e}")
-
-        return extracted
+        # Deduplicate results
+        final_results = deduplicate_results(all_results)
+        
+        processing_time = time.time() - start_time
+        print(f"⏱️ Parallel processing completed in {processing_time:.2f} seconds")
+        print(f"🎯 Total unique emails found: {final_results['total_found']}")
+        
+        # Show method comparison
+        print("\n📊 Method Comparison:")
+        for method, emails in final_results["method_results"].items():
+            print(f"  {method.upper()}: {len(emails)} emails")
+        
+        # Clean emails before returning
+        cleaned_emails = clean_emails(final_results["unique_results"])
+        return cleaned_emails
+        
     except Exception as e:
         print(f"❌ Error processing {filepath}: {e}")
         return []
