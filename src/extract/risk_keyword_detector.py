@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import re
+from src.extract.utils_visible_text import detect_suspicious_prompts
 
 # === LLM Client (Together.ai) ===
 TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
@@ -281,6 +282,12 @@ def detect_risk_keywords_from_html(filepath, use_llm=True, use_rag=True, use_ai=
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             html_text = f.read()
+
+            # Detect suspicious prompt injection attempts
+            suspicious = detect_suspicious_prompts(html_text)
+            if suspicious:
+                print(f"⚠️ Suspicious prompt injection detected in {filepath}: {suspicious}")
+                # Optionally, you could log or return this for reporting
 
             # === Language detection and translation ===
             if translate:

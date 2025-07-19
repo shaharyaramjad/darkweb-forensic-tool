@@ -14,6 +14,7 @@ from src.report.pdf_report import generate_pdf_report
 from src.report.json_report import generate_json_report
 from src.llm.llm_classifier import classify_with_llm
 from src.utils.security_scanner import secure_file_processing
+from src.extract.utils_visible_text import detect_suspicious_prompts
 
 # ===== Toggle Integrations =====
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
@@ -70,6 +71,12 @@ for filename in os.listdir(directory):
         emails_found = extract_emails_from_html(filepath, use_ai=USE_AI_MODEL, use_llm=USE_LLM, translate=TRANSLATE, use_rag=USE_RAG)
         keywords_found = detect_risk_keywords_from_html(filepath,use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL,translate=TRANSLATE)
         file_hash = calculate_sha256(filepath)
+
+        # Collect suspicious prompts from all extractors
+        suspicious_prompts = []
+        suspicious_prompts += detect_suspicious_prompts(open(filepath, 'r', encoding='utf-8', errors='ignore').read())
+        # (If you want to aggregate from each extractor, you can also return them from each extractor and merge here)
+        suspicious_prompts = list(set(suspicious_prompts))
 
         # LLM Summary (if enabled)
         llm_summary = "LLM disabled."
@@ -132,7 +139,8 @@ for filename in os.listdir(directory):
             case_id,
             investigator,
             notes,
-            llm_summary
+            llm_summary,
+            suspicious_prompts
         )
 
         generate_json_report(
@@ -146,7 +154,8 @@ for filename in os.listdir(directory):
             case_id,
             investigator,
             notes,
-            llm_summary
+            llm_summary,
+            suspicious_prompts
         )
 
         if USE_SQL:

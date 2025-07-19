@@ -10,6 +10,7 @@ from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from src.extract.utils_visible_text import detect_suspicious_prompts
 
 # === Together.ai LLM ===
 TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
@@ -176,6 +177,12 @@ def extract_emails_from_html(filepath, use_ai=True, use_llm=True, translate=True
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             html = f.read()
+
+        # Detect suspicious prompt injection attempts
+        suspicious = detect_suspicious_prompts(html)
+        if suspicious:
+            print(f"⚠️ Suspicious prompt injection detected in {filepath}: {suspicious}")
+            # Optionally, you could log or return this for reporting
 
         # Extract visible text
         soup = BeautifulSoup(html, 'html.parser')
