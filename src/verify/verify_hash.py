@@ -13,7 +13,7 @@ def verify_hash(html_file_path, report_json_path):
 
     with open(report_json_path, "r") as json_file:
         report_data = json.load(json_file)
-        stored_hash = report_data.get("sha256_hash")
+        stored_hash = report_data.get("sha256")
 
     print(f"\n📄 File: {html_file_path}")
     print(f"Current SHA-256: {current_hash}")

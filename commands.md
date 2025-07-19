@@ -7,6 +7,19 @@ A collection of essential commands for developing, running, verifying, and contr
 ## ✅ 1. Activate Virtual Environment
 source venv/bin/activate
 
+## 1.1. Auto-activate Virtual Environment (Cross-platform)
+# Use this script to automatically activate the virtual environment for Unix, macOS, or Windows (Git Bash/WSL/Cygwin):
+source auto_venv.sh
+# or
+. auto_venv.sh
+
+# Notes:
+# - Works in bash, zsh, Git Bash, WSL, or Cygwin.
+# - If you are using Windows Command Prompt or PowerShell, activate manually:
+#   - Command Prompt: venv\Scripts\activate.bat
+#   - PowerShell: venv\Scripts\Activate.ps1
+# - If the script cannot find the activation file, it will print an error message.
+
 ## 📦 2. Manage Dependencies
 
 ## 2.1 Freeze installed packages for collaboration:

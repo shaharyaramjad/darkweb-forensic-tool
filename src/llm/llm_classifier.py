@@ -3,9 +3,11 @@ import faiss
 import numpy as np
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+load_dotenv()
 
 # === Together.ai LLM ===
-TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 client = OpenAI(
     base_url="https://api.together.ai/",

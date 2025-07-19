@@ -11,9 +11,11 @@ from sentence_transformers import SentenceTransformer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from src.extract.utils_visible_text import detect_suspicious_prompts
+from dotenv import load_dotenv
+load_dotenv()
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 # === Together.ai LLM ===
-TOGETHER_API_KEY = "1198a6fc34e0f74feb1a65172609d1401d30de7344f7ef6fb4833d5c12e3cad2"
 client = OpenAI(
     base_url="https://api.together.ai/",
     api_key=TOGETHER_API_KEY,

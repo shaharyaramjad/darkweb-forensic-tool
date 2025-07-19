@@ -140,4 +140,23 @@ LEFT JOIN extracted_payment_addresses p ON c.id = p.case_id
 LEFT JOIN risk_keywords k ON c.id = k.case_id
 ORDER BY c.id;
 
+## Environment Setup
+
+This project uses a `.env` file to securely store API keys and other secrets. You must create a `.env` file in the project root with the following variable:
+
+```
+TOGETHER_API_KEY=your_together_api_key_here
+```
+
+- Never commit your real `.env` file to version control. The `.env` file is already in `.gitignore`.
+- You can use the provided `auto_venv.sh` script to activate your virtual environment automatically:
+
+```bash
+source auto_venv.sh
+```
+
+If you are on Windows Command Prompt or PowerShell, activate manually:
+- Command Prompt: `venv\Scripts\activate.bat`
+- PowerShell: `venv\Scripts\Activate.ps1`
+
 
