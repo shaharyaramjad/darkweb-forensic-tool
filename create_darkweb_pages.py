@@ -202,9 +202,9 @@ def create_darkweb_marketplace_page(market_data, page_num):
 def create_test_pages():
     """Create realistic dark web HTML pages from dataset"""
     
-    # Create output directory
-    output_dir = "data/darkweb_test_pages"
-    os.makedirs(output_dir, exist_ok=True)
+    # Save directly to data directory
+    output_dir = "data"
+    # No need to create a subdirectory
     
     # Process forum data
     print("📄 Creating forum pages...")
@@ -258,18 +258,9 @@ def create_test_pages():
             filename = f"marketplace_page_{i+1}.html"
             with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            print(f"✅ Created {filename} with description length: {len(str(row.get('Item Description', '')))} chars")
+            print(f"✅ Created {filename} with content length: {len(str(row.get('Item Description', '')))} chars")
     except Exception as e:
         print(f"⚠️ Error processing marketplace data: {e}")
-    
-    total_pages = len(os.listdir(output_dir))
-    print(f"\n🎉 Created {total_pages} test pages in {output_dir}/")
-    print(f"📊 Summary:")
-    print(f"   • Forum pages: 3 (with diverse content for testing)")
-    print(f"   • Marketplace pages: 3 (with diverse listings for testing)")
-    print(f"   • Total pages: {total_pages}")
-    print(f"   • Each page contains test data for email, payment, and keyword extraction")
-    return output_dir
 
 if __name__ == "__main__":
     create_test_pages() 

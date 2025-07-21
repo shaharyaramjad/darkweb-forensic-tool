@@ -405,7 +405,7 @@ with tab3:
             
             with open(report_json_path, "r") as json_file:
                 report_data = json.load(json_file)
-                stored_hash = report_data.get("sha256_hash")
+                stored_hash = report_data.get("sha256")
             
             return {
                 'file': os.path.basename(html_file_path),

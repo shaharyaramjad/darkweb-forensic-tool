@@ -75,3 +75,6 @@ data/safe_files/*.html
 data/demo_*.html
 data/test_*.html
 data/safe_*.html
+
+# Ignore environment variable files
+.env
