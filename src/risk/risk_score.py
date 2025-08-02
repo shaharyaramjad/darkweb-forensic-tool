@@ -1,4 +1,4 @@
-def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None, financial_data=None):
+def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None, financial_data=None, shipping_addresses=None):
     score = 0
 
     # Score BTC
@@ -54,5 +54,32 @@ def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None
         score += 20  # Bonus for multiple PGP items
     if financial_data and len(financial_data) >= 2:
         score += 25  # Bonus for multiple financial items
+    
+    # Score shipping addresses
+    if shipping_addresses:
+        for shipping_item in shipping_addresses:
+            data_type = shipping_item.get('type', 'unknown')
+            if data_type == 'postal_address':
+                score += 30  # High risk for physical addresses
+            elif data_type == 'drop_location':
+                score += 40  # Very high risk for drop locations
+            elif data_type == 'coordinates':
+                score += 35  # High risk for GPS coordinates
+            elif data_type == 'postal_code':
+                score += 15  # Medium risk for postal codes
+            elif data_type == 'city_state':
+                score += 20  # Medium risk for city/state
+            elif data_type == 'shipping_instructions':
+                score += 25  # Medium-high risk for delivery instructions
+            elif data_type == 'landmark_references':
+                score += 20  # Medium risk for landmarks
+            elif data_type == 'time_instructions':
+                score += 15  # Medium risk for time-based instructions
+            else:
+                score += 10  # Default risk for other shipping data
+    
+    # Bonus for multiple shipping items
+    if shipping_addresses and len(shipping_addresses) >= 2:
+        score += 30  # Bonus for multiple shipping items
 
     return score
