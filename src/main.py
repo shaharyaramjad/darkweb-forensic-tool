@@ -9,6 +9,7 @@ from src.extract.extract_payment_addresses_from_html import extract_payment_addr
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.extract.pgp_extractor import extract_pgp_from_html
+from src.extract.financial_data_extractor import extract_financial_data_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -21,7 +22,7 @@ from src.extract.utils_visible_text import detect_suspicious_prompts
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
 USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
 TRANSLATE = True     # 🔁 Enable or disable translation step
-USE_SQL = False  # 🔁 Set to False to disable MySQL insert
+USE_SQL = True   # 🔁 Set to True to enable MySQL insert
 USE_RAG = False
 ENABLE_SECURITY_SCAN = True  # 🔁 Enable security scanning
 
@@ -60,6 +61,10 @@ for filename in os.listdir(directory):
                 print("✅ File passed security scan.")
         else:
             print("⚠️ Security scanning disabled!")
+
+        # Read HTML content
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            html_content = f.read()
 
         # Run extractors
         payment_addresses = extract_payment_addresses_from_html(
@@ -121,10 +126,20 @@ for filename in os.listdir(directory):
         else:
             print("✅ No PGP content detected.")
 
+        # Extract financial data
+        financial_data = extract_financial_data_from_html(filepath, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL, translate=TRANSLATE)
+        if financial_data:
+            for financial_item in financial_data:
+                data_type = financial_item.get('type', 'unknown')
+                content = financial_item.get('content', '')[:100] + "..." if len(financial_item.get('content', '')) > 100 else financial_item.get('content', '')
+                print(f"💳 Financial {data_type.upper()} Found: {content}")
+        else:
+            print("✅ No financial data detected.")
+
         print(f"🧠 LLM Summary: {llm_summary}")
 
         # 🔥 Risk Score
-        score = calculate_risk_score(payment_addresses, emails_found, keywords_found, pgp_content)
+        score = calculate_risk_score(payment_addresses, emails_found, keywords_found, pgp_content, financial_data)
         print(f"🔥 Risk Score: {score}")
 
         severity = "Low"
@@ -145,6 +160,7 @@ for filename in os.listdir(directory):
             emails_found,
             keywords_found,
             pgp_content,
+            financial_data,
             score,
             severity,
             case_id,
@@ -161,6 +177,7 @@ for filename in os.listdir(directory):
             emails_found,
             keywords_found,
             pgp_content,
+            financial_data,
             score,
             severity,
             case_id,
@@ -179,6 +196,7 @@ for filename in os.listdir(directory):
                 payment_addresses,
                 keywords_found,
                 pgp_content,
+                financial_data,
                 score,
                 severity,
                 file_hash,

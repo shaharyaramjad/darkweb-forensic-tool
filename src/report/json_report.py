@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 def generate_json_report(
-    filename, hash_value, btc_list, email_list, keywords, pgp_content, score,
+    filename, hash_value, btc_list, email_list, keywords, pgp_content, financial_data, score,
     level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
 ):
     os.makedirs("reports", exist_ok=True)
@@ -21,6 +21,7 @@ def generate_json_report(
         "emails": email_list or [],
         "risky_keywords": keywords or [],
         "pgp_content": pgp_content or [],
+        "financial_data": financial_data or [],
         "risk_score": score,
         "severity": level,
         "llm_summary": llm_summary or "None"

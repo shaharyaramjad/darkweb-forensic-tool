@@ -78,7 +78,11 @@ python extraction_performance_test.py
 # Test the new PGP extraction functionality:
 python test_pgp_extractor.py
 
-## 7.4. Test Single File in Streamlit
+## 7.4. Test Financial Data Extractor
+# Test the new financial data extraction functionality:
+python test_financial_extractor.py
+
+## 7.5. Test Single File in Streamlit
 # Upload a test file in the Streamlit app and compare RAG vs LLM results
 # Recommended test file: data/darkweb_test_pages/forum_page_8.html
 # PGP test file: data/test_pgp.html

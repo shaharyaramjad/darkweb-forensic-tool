@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from src.extract.utils_visible_text import detect_suspicious_prompts
 from dotenv import load_dotenv
+from huggingface_hub import InferenceClient
 load_dotenv()
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
@@ -18,6 +19,12 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 client = OpenAI(
     base_url="https://api.together.ai/",
     api_key=TOGETHER_API_KEY,
+)
+
+# === Hugging Face client for AI model ===
+hf_client = InferenceClient(
+    provider="hf-inference",
+    api_key="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",
 )
 
 # === Regex patterns for PGP keys and blocks ===
@@ -239,6 +246,42 @@ Return only the JSON array, no other text.
     except Exception as e:
         return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
 
+def extract_pgp_with_ai(text):
+    """Extract PGP content using Hugging Face AI model"""
+    try:
+        # Use StarPII for PII detection to find potential PGP-related entities
+        result = hf_client.token_classification(text, model="bigcode/starpii")
+        pgp_data = []
+        
+        for entity in result:
+            if entity['entity_group'].lower() in ['org', 'misc']:
+                content = entity['word']
+                # Check if it looks like PGP content
+                if re.search(r'\b(?:PGP|GPG|-----BEGIN|-----END|Key ID|Fingerprint)\b', content, re.IGNORECASE):
+                    pgp_data.append({
+                        'type': 'mention',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.match(r'^[A-F0-9]{8,40}$', content, re.IGNORECASE):
+                    # Looks like a key ID or fingerprint
+                    pgp_data.append({
+                        'type': 'key_id',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.search(r'-----BEGIN.*-----', content):
+                    # Looks like PGP armor
+                    pgp_data.append({
+                        'type': 'public_key',
+                        'content': content,
+                        'method': 'ai'
+                    })
+        
+        return {"method": "ai", "results": pgp_data, "success": True}
+    except Exception as e:
+        return {"method": "ai", "results": [], "success": False, "error": str(e)}
+
 def deduplicate_results(all_results):
     """Deduplicate PGP results across different methods"""
     seen_content = set()
@@ -323,11 +366,15 @@ def extract_pgp_from_html(filepath, use_llm=True, use_rag=True, use_ai=True, tra
         # Task 1: Regex extraction (always runs)
         extraction_tasks.append(("regex", lambda: extract_pgp_with_regex(text_content)))
         
-        # Task 2: LLM with RAG (if enabled)
+        # Task 2: AI model extraction (if enabled)
+        if use_ai:
+            extraction_tasks.append(("ai", lambda: extract_pgp_with_ai(text_content)))
+        
+        # Task 3: LLM with RAG (if enabled)
         if use_llm and use_rag:
             extraction_tasks.append(("llm_rag", lambda: extract_pgp_with_llm_rag(text_content)))
         
-        # Task 3: LLM only (if enabled and RAG is not)
+        # Task 4: LLM only (if enabled and RAG is not)
         elif use_llm:
             extraction_tasks.append(("llm_only", lambda: extract_pgp_with_llm_only(text_content)))
         

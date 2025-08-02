@@ -41,3 +41,11 @@ CREATE TABLE pgp_content (
     pgp_content TEXT,
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
+
+CREATE TABLE financial_data (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    data_type VARCHAR(100),
+    content TEXT,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);
