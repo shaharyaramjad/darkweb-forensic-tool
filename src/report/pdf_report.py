@@ -5,7 +5,7 @@ import os
 import textwrap
 
 def generate_pdf_report(
-    filename, hash_value, btc_list, email_list, keywords, pgp_content, financial_data, score,
+    filename, hash_value, btc_list, email_list, keywords, pgp_content, financial_data, shipping_addresses, score,
     level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
 ):
     os.makedirs("reports", exist_ok=True)
@@ -70,6 +70,15 @@ def generate_pdf_report(
         for financial_item in financial_data:
             data_type = financial_item.get('type', 'unknown')
             content = financial_item.get('content', '')[:50] + "..." if len(financial_item.get('content', '')) > 50 else financial_item.get('content', '')
+            draw_line(f"- {data_type.upper()}: {content}", indent=70)
+    else:
+        draw_line("- None", indent=70)
+
+    draw_line("📦 Shipping Addresses:")
+    if shipping_addresses:
+        for shipping_item in shipping_addresses:
+            data_type = shipping_item.get('type', 'unknown')
+            content = shipping_item.get('content', '')[:50] + "..." if len(shipping_item.get('content', '')) > 50 else shipping_item.get('content', '')
             draw_line(f"- {data_type.upper()}: {content}", indent=70)
     else:
         draw_line("- None", indent=70)

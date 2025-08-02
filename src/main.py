@@ -10,6 +10,7 @@ from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.extract.pgp_extractor import extract_pgp_from_html
 from src.extract.financial_data_extractor import extract_financial_data_from_html
+from src.extract.shipping_address_extractor import extract_shipping_addresses_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -136,10 +137,20 @@ for filename in os.listdir(directory):
         else:
             print("✅ No financial data detected.")
 
+        # Extract shipping addresses
+        shipping_addresses = extract_shipping_addresses_from_html(filepath, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL, translate=TRANSLATE)
+        if shipping_addresses:
+            for shipping_item in shipping_addresses:
+                data_type = shipping_item.get('type', 'unknown')
+                content = shipping_item.get('content', '')[:100] + "..." if len(shipping_item.get('content', '')) > 100 else shipping_item.get('content', '')
+                print(f"📦 Shipping {data_type.upper()} Found: {content}")
+        else:
+            print("✅ No shipping addresses detected.")
+
         print(f"🧠 LLM Summary: {llm_summary}")
 
         # 🔥 Risk Score
-        score = calculate_risk_score(payment_addresses, emails_found, keywords_found, pgp_content, financial_data)
+        score = calculate_risk_score(payment_addresses, emails_found, keywords_found, pgp_content, financial_data, shipping_addresses)
         print(f"🔥 Risk Score: {score}")
 
         severity = "Low"
@@ -161,6 +172,7 @@ for filename in os.listdir(directory):
             keywords_found,
             pgp_content,
             financial_data,
+            shipping_addresses,
             score,
             severity,
             case_id,
@@ -178,6 +190,7 @@ for filename in os.listdir(directory):
             keywords_found,
             pgp_content,
             financial_data,
+            shipping_addresses,
             score,
             severity,
             case_id,
@@ -197,6 +210,7 @@ for filename in os.listdir(directory):
                 keywords_found,
                 pgp_content,
                 financial_data,
+                shipping_addresses,
                 score,
                 severity,
                 file_hash,

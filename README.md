@@ -6,6 +6,7 @@ This Python-based **offline forensic tool** processes `.html` pages extracted fr
 - ✅ Detects email addresses  
 - 🔐 Identifies PGP keys and encrypted content
 - 💳 Detects credit card numbers, CVV, expiry dates, IBANs, and SWIFT codes
+- 📦 Extracts shipping addresses, drop locations, and delivery instructions
 - ⚠️ Flags risky keywords (e.g., "buy drugs", "zero-day", etc.)  
 - 🔥 Calculates a risk score with severity label  
 - 🧾 Generates PDF and JSON forensic reports  

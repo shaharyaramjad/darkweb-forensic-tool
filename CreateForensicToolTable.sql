@@ -49,3 +49,11 @@ CREATE TABLE financial_data (
     content TEXT,
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
+
+CREATE TABLE shipping_addresses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    address_type VARCHAR(100),
+    content TEXT,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);
