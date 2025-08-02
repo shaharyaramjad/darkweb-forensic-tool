@@ -5,7 +5,7 @@ import os
 import textwrap
 
 def generate_pdf_report(
-    filename, hash_value, btc_list, email_list, keywords, score,
+    filename, hash_value, btc_list, email_list, keywords, pgp_content, score,
     level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
 ):
     os.makedirs("reports", exist_ok=True)
@@ -55,6 +55,15 @@ def generate_pdf_report(
     draw_line("⚠️ Risky Keywords:")
     for keyword in keywords or ["None"]:
         draw_line(f"- {keyword}", indent=70)
+
+    draw_line("🔐 PGP Content:")
+    if pgp_content:
+        for pgp_item in pgp_content:
+            pgp_type = pgp_item.get('type', 'unknown')
+            content = pgp_item.get('content', '')[:50] + "..." if len(pgp_item.get('content', '')) > 50 else pgp_item.get('content', '')
+            draw_line(f"- {pgp_type.upper()}: {content}", indent=70)
+    else:
+        draw_line("- None", indent=70)
 
     draw_line(f"🔥 Risk Score: {score}")
     draw_line(f"🔒 Severity Level: {level.upper()}", gap=30)

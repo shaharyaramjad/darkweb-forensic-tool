@@ -74,9 +74,14 @@ python create_darkweb_pages.py
 # Test all extraction methods (AI Models, RAG+LLM, LLM-only) on all HTML pages:
 python extraction_performance_test.py  
 
-## 7.3. Test Single File in Streamlit
+## 7.3. Test PGP Extractor
+# Test the new PGP extraction functionality:
+python test_pgp_extractor.py
+
+## 7.4. Test Single File in Streamlit
 # Upload a test file in the Streamlit app and compare RAG vs LLM results
 # Recommended test file: data/darkweb_test_pages/forum_page_8.html
+# PGP test file: data/test_pgp.html
 
 ## 📊 8. Understanding Test Results
 

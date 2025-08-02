@@ -8,6 +8,7 @@ from src.utils.db_insert import insert_into_db
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
+from src.extract.pgp_extractor import extract_pgp_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -106,6 +107,7 @@ with tab1:
                 )
                 emails = extract_emails_from_html(temp_path, use_ai=USE_AI, use_llm=USE_LLM, translate=TRANSLATE, use_rag=USE_RAG)
                 keywords = detect_risk_keywords_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
+                pgp_content = extract_pgp_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
 
                 # LLM Summary
                 llm_summary = "LLM disabled."
@@ -118,7 +120,7 @@ with tab1:
                         llm_summary = f"⚠️ LLM error: {e}"
 
                 # Risk Score
-                score = calculate_risk_score(payments, emails, keywords)
+                score = calculate_risk_score(payments, emails, keywords, pgp_content)
                 label = "Low" if score < 50 else "Medium" if score < 100 else "High"
 
                 # Timestamp + Reports
@@ -126,8 +128,8 @@ with tab1:
                 base_name = f"{case_id}_{os.path.splitext(file_name)[0]}_{timestamp}"
 
                 # Generate reports and store paths
-                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
-                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, score, label, case_id, investigator, notes, llm_summary)
+                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, pgp_content, score, label, case_id, investigator, notes, llm_summary)
+                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, pgp_content, score, label, case_id, investigator, notes, llm_summary)
 
                 generated_reports.append({
                     'file_name': file_name,
@@ -135,6 +137,44 @@ with tab1:
                     'pdf_path': pdf_path,
                     'json_path': json_path
                 })
+
+                # Display results
+                with st.expander(f"📊 Analysis Results for {file_name}"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**💰 Payment Addresses:**")
+                        if payments:
+                            for payment in payments:
+                                st.write(f"- {payment}")
+                        else:
+                            st.write("- None found")
+                        
+                        st.write("**📧 Emails:**")
+                        if emails:
+                            for email in emails:
+                                st.write(f"- {email}")
+                        else:
+                            st.write("- None found")
+                    
+                    with col2:
+                        st.write("**⚠️ Risky Keywords:**")
+                        if keywords:
+                            for keyword in keywords:
+                                st.write(f"- {keyword}")
+                        else:
+                            st.write("- None found")
+                        
+                        st.write("**🔐 PGP Content:**")
+                        if pgp_content:
+                            for pgp_item in pgp_content:
+                                pgp_type = pgp_item.get('type', 'unknown')
+                                content = pgp_item.get('content', '')[:50] + "..." if len(pgp_item.get('content', '')) > 50 else pgp_item.get('content', '')
+                                st.write(f"- {pgp_type.upper()}: {content}")
+                        else:
+                            st.write("- None found")
+                    
+                    st.write(f"**🔥 Risk Score:** {score} ({label})")
 
                 st.success(f"✅ {file_name} processed. PDF and JSON saved as: {base_name}")
                 if USE_SQL:
@@ -145,6 +185,7 @@ with tab1:
                         emails,
                         payments,
                         keywords,
+                        pgp_content,
                         score,
                         label,
                         file_hash,
@@ -285,6 +326,17 @@ SELECT
     c.created_at
 FROM risk_keywords k
 JOIN case_metadata c ON k.case_id = c.id;""",
+            "View all PGP content with case info": """
+SELECT 
+    p.id,
+    p.pgp_type,
+    p.pgp_content,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM pgp_content p
+JOIN case_metadata c ON p.case_id = c.id;""",
             "High risk cases (score > 100)": "SELECT * FROM case_metadata WHERE score > 100;",
             "Recent cases (last 10)": "SELECT * FROM case_metadata ORDER BY created_at DESC LIMIT 10;",
             "Cases by severity level": "SELECT severity, COUNT(*) as count FROM case_metadata GROUP BY severity;",
@@ -305,11 +357,15 @@ SELECT
     p.id AS payment_address_id,
     p.address,
     k.id AS keyword_id,
-    k.keyword
+    k.keyword,
+    pg.id AS pgp_id,
+    pg.pgp_type,
+    pg.pgp_content
 FROM case_metadata c
 LEFT JOIN extracted_emails e ON c.id = e.case_id
 LEFT JOIN extracted_payment_addresses p ON c.id = p.case_id
 LEFT JOIN risk_keywords k ON c.id = k.case_id
+LEFT JOIN pgp_content pg ON c.id = pg.case_id
 ORDER BY c.id;"""
         }
 
@@ -325,7 +381,7 @@ ORDER BY c.id;"""
 
         with col2:
             st.write("**📊 Detailed Analysis**")
-            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info"]
+            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info", "View all PGP content with case info"]
             for title in detailed_queries:
                 if st.button(f"📝 {title}", key=f"sample_{title}"):
                     st.session_state.selected_query = sample_queries[title]

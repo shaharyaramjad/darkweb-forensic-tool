@@ -4,6 +4,7 @@ This Python-based **offline forensic tool** processes `.html` pages extracted fr
 
 - ✅ Extracts Bitcoin (BTC) addresses  
 - ✅ Detects email addresses  
+- 🔐 Identifies PGP keys and encrypted content
 - ⚠️ Flags risky keywords (e.g., "buy drugs", "zero-day", etc.)  
 - 🔥 Calculates a risk score with severity label  
 - 🧾 Generates PDF and JSON forensic reports  

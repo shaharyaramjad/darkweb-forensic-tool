@@ -33,3 +33,11 @@ CREATE TABLE risk_keywords (
     keyword VARCHAR(255),
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
+
+CREATE TABLE pgp_content (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    pgp_type VARCHAR(100),
+    pgp_content TEXT,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);
