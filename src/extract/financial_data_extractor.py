@@ -11,9 +11,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from src.extract.utils_visible_text import detect_suspicious_prompts
 from dotenv import load_dotenv
+from huggingface_hub import InferenceClient
 
 # Load environment variables
 load_dotenv()
+
+# === Hugging Face client for AI model ===
+hf_client = InferenceClient(
+    provider="hf-inference",
+    api_key="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",
+)
 
 # Financial data patterns
 financial_patterns = {
@@ -232,6 +239,52 @@ def extract_financial_data_with_llm_only(text):
     except Exception as e:
         return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
 
+def extract_financial_data_with_ai(text):
+    """Extract financial data using Hugging Face AI model"""
+    try:
+        # Use a financial NER model or zero-shot classification
+        result = hf_client.token_classification(text, model="bigcode/starpii")
+        financial_data = []
+        
+        for entity in result:
+            if entity['entity_group'].lower() in ['cardinal', 'money', 'org']:
+                # Check if it looks like financial data
+                content = entity['word']
+                if re.match(r'\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b', content):  # Credit card
+                    financial_data.append({
+                        'type': 'credit_card',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.match(r'\b\d{3,4}\b', content) and len(content) in [3, 4]:  # CVV
+                    financial_data.append({
+                        'type': 'cvv',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.match(r'\b(?:0[1-9]|1[0-2])/(?:2[0-9]|3[0-9])\b', content):  # Expiry
+                    financial_data.append({
+                        'type': 'expiry_date',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.match(r'\b[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}\b', content):  # IBAN
+                    financial_data.append({
+                        'type': 'iban',
+                        'content': content,
+                        'method': 'ai'
+                    })
+                elif re.match(r'\b[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b', content):  # SWIFT
+                    financial_data.append({
+                        'type': 'swift_code',
+                        'content': content,
+                        'method': 'ai'
+                    })
+        
+        return {"method": "ai", "results": financial_data, "success": True}
+    except Exception as e:
+        return {"method": "ai", "results": [], "success": False, "error": str(e)}
+
 def deduplicate_results(all_results):
     """Remove duplicate financial data entries and organize by method."""
     seen = set()
@@ -326,6 +379,10 @@ def extract_financial_data_from_html(file_path, use_llm=True, use_rag=True, use_
             
             # Always run regex (fastest and most reliable)
             extraction_methods.append(("regex", lambda: extract_financial_data_with_regex(text)))
+            
+            # Add AI methods if enabled
+            if use_ai:
+                extraction_methods.append(("ai", lambda: extract_financial_data_with_ai(text)))
             
             # Add LLM methods if enabled
             if use_llm:
