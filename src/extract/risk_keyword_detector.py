@@ -25,11 +25,11 @@ zero_shot_classifier = pipeline("zero-shot-classification", model="facebook/bart
 
 # === Knowledge base for RAG ===
 knowledge_texts = [
-    "DRUGS: meth, cocaine, heroin, LSD, MDMA, fentanyl, weed, marijuana, prescription, pharmacy, dealer, supplier, grams, ounces, kilos, pure, high quality, best price, bulk, wholesale, escrow, feedback, trusted vendor, verified, stealth shipping, decoy, vacuum sealed, tracking, express delivery, overnight, worldwide shipping, no customs, guaranteed delivery, money back, refund, reship, dispute, resolution, finalize, release, auto-finalize, FE, finalize early, multisig, 2FA, PGP, encryption, secure communication, protonmail, tutanota, onionmail, jabber, wickr, telegram, signal, encrypted messaging, darknet, deep web, hidden service, .onion, tor, vpn, proxy, anonymous, privacy, security, opsec, operational security, burner phone, disposable, temporary, fake identity, fake name, fake address, fake documents, fake ID, fake passport, fake driver license, fake social security, fake credit card, fake bank account, fake paypal, fake venmo, fake cashapp, fake zelle, fake western union, fake moneygram, fake bitcoin, fake ethereum, fake monero, fake litecoin, fake dash, fake zcash, fake ripple, fake cardano, fake polkadot, fake solana, fake avalanche, fake polygon, fake binance coin, fake tether, fake usdt, fake usdc, fake dai, fake busd, fake pax, fake tusd, fake gusd, fake husd, fake jusd, fake kusd, fake lusd, fake musd, fake nusd, fake ousd, fake pusd, fake qusd, fake rusd, fake susd, fake tusd, fake uusd, fake vusd, fake wusd, fake xusd, fake yusd, fake zusd",
-    "WEAPONS: guns, firearms, weapons, ammo, ammunition, bullets, rounds, magazines, clips, silencers, suppressors, Glock, AK-47, AR-15, rifle, pistol, handgun, shotgun, sniper, scope, sights, laser, tactical, military, army, navy, air force, marines, special forces, delta force, seal team, ranger, green beret, commando, mercenary, private military, security contractor, bodyguard, protection, security, guard, bouncer, doorman, watchman, sentinel, lookout, scout, spy, informant, snitch, rat, traitor, betrayer, backstabber, double agent, mole, infiltrator, saboteur, terrorist, extremist, radical, fundamentalist, jihadist, militant, insurgent, rebel, revolutionary, freedom fighter, resistance, underground, clandestine, covert, secret, hidden, concealed, disguised, camouflaged, stealth, invisible, undetectable, untraceable, anonymous, nameless, faceless, unknown, unidentified, mysterious, enigmatic, cryptic, obscure, vague, ambiguous, unclear, uncertain, doubtful, suspicious, questionable, dubious, shady, sketchy, fishy, dodgy, suspicious, questionable, dubious, shady, sketchy, fishy, dodgy",
-    "HACKING: exploit, vulnerability, zero-day, backdoor, rootkit, keylogger, trojan, virus, malware, ransomware, spyware, adware, botnet, DDoS, DoS, denial of service, distributed denial of service, SQL injection, XSS, cross-site scripting, CSRF, cross-site request forgery, LFI, local file inclusion, RFI, remote file inclusion, buffer overflow, stack overflow, heap overflow, integer overflow, format string, race condition, time of check to time of use, TOCTOU, use after free, double free, memory leak, null pointer dereference, segmentation fault, core dump, crash, hang, freeze, lockup, deadlock, livelock, starvation, priority inversion, convoy effect, thundering herd, stampede, avalanche, cascade, domino effect, butterfly effect, chaos theory, complexity theory, algorithmic complexity, computational complexity, time complexity, space complexity, big O notation, asymptotic analysis, worst case, best case, average case, expected case, amortized analysis, competitive analysis, online algorithms, offline algorithms, approximation algorithms, heuristic algorithms, greedy algorithms, dynamic programming, divide and conquer, recursion, iteration, loop, conditional, branching, jumping, calling, returning, pushing, popping, stacking, queuing, linking, chaining, hashing, sorting, searching, filtering, mapping, reducing, folding, unfolding, expanding, contracting, growing, shrinking, increasing, decreasing, ascending, descending, rising, falling, climbing, descending, going up, going down, moving up, moving down, traveling up, traveling down, journeying up, journeying down, ascending, descending, climbing, descending, going up, going down, moving up, moving down, traveling up, traveling down, journeying up, journeying down",
-    "FRAUD: stolen, fake, counterfeit, forged, fraudulent, scam, phishing, vishing, smishing, pretexting, baiting, quid pro quo, tailgating, piggybacking, shoulder surfing, dumpster diving, social engineering, psychological manipulation, cognitive bias, confirmation bias, anchoring bias, availability bias, representativeness bias, hindsight bias, overconfidence bias, optimism bias, pessimism bias, negativity bias, positivity bias, selection bias, sampling bias, measurement bias, observer bias, experimenter bias, subject bias, participant bias, volunteer bias, self-selection bias, non-response bias, response bias, acquiescence bias, social desirability bias, demand characteristics, Hawthorne effect, placebo effect, nocebo effect, Pygmalion effect, Rosenthal effect, experimenter expectancy effect, observer expectancy effect, subject expectancy effect, participant expectancy effect, volunteer expectancy effect, self-selection expectancy effect, non-response expectancy effect, response expectancy effect, acquiescence expectancy effect, social desirability expectancy effect, demand characteristics expectancy effect, Hawthorne expectancy effect, placebo expectancy effect, nocebo expectancy effect, Pygmalion expectancy effect, Rosenthal expectancy effect",
-    "IDENTITY THEFT: SSN, social security, driver license, passport, fullz, dox, personal information, PII, personally identifiable information, sensitive data, confidential data, private data, secret data, classified data, restricted data, proprietary data, trade secret, intellectual property, copyright, trademark, patent, license, permit, authorization, certification, accreditation, qualification, credential, diploma, degree, certificate, badge, token, key, password, PIN, passcode, access code, security code, verification code, authentication code, authorization code, confirmation code, validation code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code"
+    "ILLEGAL DRUGS: meth, cocaine, heroin, LSD, MDMA, fentanyl, weed, marijuana, prescription drugs, dealer, supplier, grams, ounces, kilos, pure, high quality, bulk, wholesale, escrow, stealth shipping, decoy, vacuum sealed, overnight, worldwide shipping, no customs, guaranteed delivery, money back, refund, reship, dispute, resolution, finalize, release, auto-finalize, FE, finalize early, multisig, 2FA, PGP, encrypted messaging, darknet, deep web, hidden service, .onion, tor, vpn, proxy, burner phone, disposable, temporary, fake identity, fake name, fake address, fake documents, fake ID, fake passport, fake driver license, fake social security, fake credit card, fake bank account, fake paypal, fake venmo, fake cashapp, fake zelle, fake western union, fake moneygram, fake bitcoin, fake ethereum, fake monero, fake litecoin, fake dash, fake zcash, fake ripple, fake cardano, fake polkadot, fake solana, fake avalanche, fake polygon, fake binance coin, fake tether, fake usdt, fake usdc, fake dai, fake busd, fake pax, fake tusd, fake gusd, fake husd, fake jusd, fake kusd, fake lusd, fake musd, fake nusd, fake ousd, fake pusd, fake qusd, fake rusd, fake susd, fake tusd, fake uusd, fake vusd, fake wusd, fake xusd, fake yusd, fake zusd",
+    "ILLEGAL WEAPONS: guns, firearms, weapons, ammo, ammunition, bullets, rounds, magazines, clips, silencers, suppressors, Glock, AK-47, AR-15, rifle, pistol, handgun, shotgun, sniper, scope, sights, laser, tactical, military, army, navy, air force, marines, special forces, delta force, seal team, ranger, green beret, commando, mercenary, private military, security contractor, bodyguard, protection, guard, bouncer, doorman, watchman, sentinel, lookout, scout, spy, informant, snitch, rat, traitor, betrayer, backstabber, double agent, mole, infiltrator, saboteur, terrorist, extremist, radical, fundamentalist, jihadist, militant, insurgent, rebel, revolutionary, freedom fighter, resistance, underground, clandestine, covert, secret, hidden, concealed, disguised, camouflaged, stealth, invisible, undetectable, untraceable, anonymous, nameless, faceless, unknown, unidentified, mysterious, enigmatic, cryptic, obscure, vague, ambiguous, unclear, uncertain, doubtful, suspicious, questionable, dubious, shady, sketchy, fishy, dodgy",
+    "ILLEGAL HACKING: exploit, vulnerability, zero-day, backdoor, rootkit, keylogger, trojan, virus, malware, ransomware, spyware, adware, botnet, DDoS, DoS, denial of service, distributed denial of service, SQL injection, XSS, cross-site scripting, CSRF, cross-site request forgery, LFI, local file inclusion, RFI, remote file inclusion, buffer overflow, stack overflow, heap overflow, integer overflow, format string, race condition, time of check to time of use, TOCTOU, use after free, double free, memory leak, null pointer dereference, segmentation fault, core dump, crash, hang, freeze, lockup, deadlock, livelock, starvation, priority inversion, convoy effect, thundering herd, stampede, avalanche, cascade, domino effect, butterfly effect, chaos theory, complexity theory, algorithmic complexity, computational complexity, time complexity, space complexity, big O notation, asymptotic analysis, worst case, best case, average case, expected case, amortized analysis, competitive analysis, online algorithms, offline algorithms, approximation algorithms, heuristic algorithms, greedy algorithms, dynamic programming, divide and conquer, recursion, iteration, loop, conditional, branching, jumping, calling, returning, pushing, popping, stacking, queuing, linking, chaining, hashing, sorting, searching, filtering, mapping, reducing, folding, unfolding, expanding, contracting, growing, shrinking, increasing, decreasing, ascending, descending, rising, falling, climbing, descending, going up, going down, moving up, moving down, traveling up, traveling down, journeying up, journeying down, ascending, descending, climbing, descending, going up, going down, moving up, moving down, traveling up, traveling down, journeying up, journeying down",
+    "ILLEGAL FRAUD: stolen, fake, counterfeit, forged, fraudulent, scam, phishing, vishing, smishing, pretexting, baiting, quid pro quo, tailgating, piggybacking, shoulder surfing, dumpster diving, social engineering, psychological manipulation, cognitive bias, confirmation bias, anchoring bias, availability bias, representativeness bias, hindsight bias, overconfidence bias, optimism bias, pessimism bias, negativity bias, positivity bias, selection bias, sampling bias, measurement bias, observer bias, experimenter bias, subject bias, participant bias, volunteer bias, self-selection bias, non-response bias, response bias, acquiescence bias, social desirability bias, demand characteristics, Hawthorne effect, placebo effect, nocebo effect, Pygmalion effect, Rosenthal effect, experimenter expectancy effect, observer expectancy effect, subject expectancy effect, participant expectancy effect, volunteer expectancy effect, self-selection expectancy effect, non-response expectancy effect, response expectancy effect, acquiescence expectancy effect, social desirability expectancy effect, demand characteristics expectancy effect, Hawthorne expectancy effect, placebo expectancy effect, nocebo expectancy effect, Pygmalion expectancy effect, Rosenthal expectancy effect",
+    "ILLEGAL IDENTITY THEFT: SSN, social security, driver license, passport, fullz, dox, personal information, PII, personally identifiable information, sensitive data, confidential data, private data, secret data, classified data, restricted data, proprietary data, trade secret, intellectual property, copyright, trademark, patent, license, permit, authorization, certification, accreditation, qualification, credential, diploma, degree, certificate, badge, token, key, password, PIN, passcode, access code, security code, verification code, authentication code, authorization code, confirmation code, validation code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code, approval code, acceptance code, agreement code, consent code, permission code, allowance code, authorization code, clearance code"
 ]
 
 # Embedding model for knowledge base
@@ -113,23 +113,29 @@ def extract_keywords_with_llm_rag(text):
         retrieved_context, rationale_text = retrieve_context_self_adaptive(text, top_k=10, final_k=5, rationale=True)
         
         prompt = f"""
-You are an expert dark web forensic analyst. Extract ALL risky keywords from the HTML content.
+You are an expert dark web forensic analyst. Extract ONLY keywords that indicate ILLEGAL or HARMFUL activities.
 
-KNOWLEDGE BASE (use these as examples to find similar terms):
+KNOWLEDGE BASE (use these as examples to find similar ILLEGAL terms):
 {retrieved_context}
 
-TASK: Find ALL risky keywords in the HTML content, including:
-1. Exact matches from the knowledge base
-2. Synonyms and related terms
-3. Abbreviations and code words
-4. Misspellings and variations
-5. Industry-specific terminology
-6. Hidden or obfuscated references
+FOCUS ONLY on:
+- Illegal drugs and substances
+- Weapons and firearms  
+- Hacking tools and exploits
+- Fraud and identity theft schemes
+- Illegal services (hitmen, etc.)
+
+DO NOT include:
+- General technical terms
+- Legitimate business terms
+- Generic security/privacy terms
+- Academic or research terms
+- Common programming terms
 
 HTML CONTENT:
 {text[:3000]}
 
-Return ONLY a comma-separated list of keywords. NO explanations or extra text.
+Return ONLY a comma-separated list of ILLEGAL/HARMFUL keywords.
 Format: keyword1,keyword2,keyword3,keyword4
 """
         response = client.chat.completions.create(
@@ -159,17 +165,24 @@ def extract_keywords_with_llm_only(text):
     """Extract keywords using LLM without RAG context"""
     try:
         prompt = f"""
-You are an expert dark web forensic analyst. Extract ALL risky keywords from the HTML content.
+You are an expert dark web forensic analyst. Extract ONLY keywords that indicate ILLEGAL or HARMFUL activities.
 
 Look for keywords related to:
 - Illegal drugs and substances
 - Weapons and firearms
-- Hacking and cybercrime
-- Fraud and identity theft
-- Illegal services
+- Hacking tools and exploits
+- Fraud and identity theft schemes
+- Illegal services (hitmen, etc.)
+
+DO NOT include:
+- General technical terms
+- Legitimate business terms
+- Generic security/privacy terms
+- Academic or research terms
+- Common programming terms
 
 INSTRUCTIONS:
-1. Extract ALL risky keywords you can find
+1. Extract ONLY ILLEGAL/HARMFUL keywords
 2. Include both obvious and subtle references
 3. Look for misspellings, abbreviations, and code words
 4. Return ONLY a comma-separated list of keywords
@@ -238,6 +251,91 @@ def clean_keywords(keyword_list):
     payment_pattern = re.compile(r'^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,}$')
     domain_pattern = re.compile(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
     
+    # Common legitimate terms to exclude
+    legitimate_terms = {
+        'privacy', 'security', 'anonymous', 'encryption', 'algorithm', 'complexity',
+        'recursion', 'iteration', 'loop', 'conditional', 'branching', 'jumping',
+        'calling', 'returning', 'pushing', 'popping', 'stacking', 'queuing',
+        'linking', 'chaining', 'hashing', 'sorting', 'searching', 'filtering',
+        'mapping', 'reducing', 'folding', 'unfolding', 'expanding', 'contracting',
+        'growing', 'shrinking', 'increasing', 'decreasing', 'ascending', 'descending',
+        'rising', 'falling', 'climbing', 'traveling', 'journeying', 'moving',
+        'going', 'worst', 'best', 'average', 'expected', 'amortized', 'competitive',
+        'online', 'offline', 'approximation', 'heuristic', 'greedy', 'dynamic',
+        'divide', 'conquer', 'theory', 'analysis', 'notation', 'asymptotic',
+        'bias', 'effect', 'expectancy', 'characteristics', 'manipulation',
+        'engineering', 'psychological', 'cognitive', 'confirmation', 'anchoring',
+        'availability', 'representativeness', 'hindsight', 'overconfidence',
+        'optimism', 'pessimism', 'negativity', 'positivity', 'selection',
+        'sampling', 'measurement', 'observer', 'experimenter', 'subject',
+        'participant', 'volunteer', 'self', 'response', 'acquiescence',
+        'desirability', 'demand', 'hawthorne', 'placebo', 'nocebo', 'pygmalion',
+        'rosenthal', 'non', 'agreement', 'consent', 'permission', 'allowance',
+        'clearance', 'acceptance', 'validation', 'confirmation', 'authentication',
+        'authorization', 'verification', 'approval', 'certification', 'accreditation',
+        'qualification', 'credential', 'diploma', 'degree', 'certificate', 'badge',
+        'token', 'password', 'passcode', 'access', 'code', 'intellectual',
+        'property', 'copyright', 'trademark', 'patent', 'license', 'permit',
+        'authorization', 'certification', 'accreditation', 'qualification',
+        'credential', 'diploma', 'degree', 'certificate', 'badge', 'token',
+        'key', 'password', 'pin', 'passcode', 'access', 'security', 'verification',
+        'authentication', 'authorization', 'confirmation', 'validation', 'approval',
+        'acceptance', 'agreement', 'consent', 'permission', 'allowance', 'clearance',
+        'privacy', 'anonymous', 'encryption', 'algorithm', 'complexity', 'recursion',
+        'iteration', 'loop', 'conditional', 'branching', 'jumping', 'calling',
+        'returning', 'pushing', 'popping', 'stacking', 'queuing', 'linking',
+        'chaining', 'hashing', 'sorting', 'searching', 'filtering', 'mapping',
+        'reducing', 'folding', 'unfolding', 'expanding', 'contracting', 'growing',
+        'shrinking', 'increasing', 'decreasing', 'ascending', 'descending', 'rising',
+        'falling', 'climbing', 'traveling', 'journeying', 'moving', 'going', 'worst',
+        'best', 'average', 'expected', 'amortized', 'competitive', 'online', 'offline',
+        'approximation', 'heuristic', 'greedy', 'dynamic', 'divide', 'conquer',
+        'theory', 'analysis', 'notation', 'asymptotic', 'bias', 'effect', 'expectancy',
+        'characteristics', 'manipulation', 'engineering', 'psychological', 'cognitive',
+        'confirmation', 'anchoring', 'availability', 'representativeness', 'hindsight',
+        'overconfidence', 'optimism', 'pessimism', 'negativity', 'positivity',
+        'selection', 'sampling', 'measurement', 'observer', 'experimenter', 'subject',
+        'participant', 'volunteer', 'self', 'response', 'acquiescence', 'desirability',
+        'demand', 'hawthorne', 'placebo', 'nocebo', 'pygmalion', 'rosenthal', 'non',
+        'agreement', 'consent', 'permission', 'allowance', 'clearance', 'acceptance',
+        'validation', 'confirmation', 'authentication', 'authorization', 'verification',
+        'approval', 'certification', 'accreditation', 'qualification', 'credential',
+        'diploma', 'degree', 'certificate', 'badge', 'token', 'password', 'passcode',
+        'access', 'code', 'intellectual', 'property', 'copyright', 'trademark', 'patent',
+        'license', 'permit', 'authorization', 'certification', 'accreditation',
+        'qualification', 'credential', 'diploma', 'degree', 'certificate', 'badge',
+        'token', 'key', 'password', 'pin', 'passcode', 'access', 'security',
+        'verification', 'authentication', 'authorization', 'confirmation', 'validation',
+        'approval', 'acceptance', 'agreement', 'consent', 'permission', 'allowance',
+        'clearance', 'privacy', 'anonymous', 'encryption', 'algorithm', 'complexity',
+        'recursion', 'iteration', 'loop', 'conditional', 'branching', 'jumping',
+        'calling', 'returning', 'pushing', 'popping', 'stacking', 'queuing', 'linking',
+        'chaining', 'hashing', 'sorting', 'searching', 'filtering', 'mapping',
+        'reducing', 'folding', 'unfolding', 'expanding', 'contracting', 'growing',
+        'shrinking', 'increasing', 'decreasing', 'ascending', 'descending', 'rising',
+        'falling', 'climbing', 'traveling', 'journeying', 'moving', 'going', 'worst',
+        'best', 'average', 'expected', 'amortized', 'competitive', 'online', 'offline',
+        'approximation', 'heuristic', 'greedy', 'dynamic', 'divide', 'conquer',
+        'theory', 'analysis', 'notation', 'asymptotic', 'bias', 'effect', 'expectancy',
+        'characteristics', 'manipulation', 'engineering', 'psychological', 'cognitive',
+        'confirmation', 'anchoring', 'availability', 'representativeness', 'hindsight',
+        'overconfidence', 'optimism', 'pessimism', 'negativity', 'positivity',
+        'selection', 'sampling', 'measurement', 'observer', 'experimenter', 'subject',
+        'participant', 'volunteer', 'self', 'response', 'acquiescence', 'desirability',
+        'demand', 'hawthorne', 'placebo', 'nocebo', 'pygmalion', 'rosenthal', 'non',
+        'agreement', 'consent', 'permission', 'allowance', 'clearance', 'acceptance',
+        'validation', 'confirmation', 'authentication', 'authorization', 'verification',
+        'approval', 'certification', 'accreditation', 'qualification', 'credential',
+        'diploma', 'degree', 'certificate', 'badge', 'token', 'password', 'passcode',
+        'access', 'code', 'intellectual', 'property', 'copyright', 'trademark', 'patent',
+        'license', 'permit', 'authorization', 'certification', 'accreditation',
+        'qualification', 'credential', 'diploma', 'degree', 'certificate', 'badge',
+        'token', 'key', 'password', 'pin', 'passcode', 'access', 'security',
+        'verification', 'authentication', 'authorization', 'confirmation', 'validation',
+        'approval', 'acceptance', 'agreement', 'consent', 'permission', 'allowance',
+        'clearance'
+    }
+    
     for keyword in keyword_list:
         # Skip if it's an email address
         if email_pattern.match(keyword) or obfuscated_email_pattern.match(keyword):
@@ -261,6 +359,10 @@ def clean_keywords(keyword_list):
             
         # Skip if it contains spaces (likely a phrase or sentence)
         if ' ' in keyword:
+            continue
+            
+        # Skip legitimate terms
+        if keyword.lower() in legitimate_terms:
             continue
             
         # Skip common irrelevant terms

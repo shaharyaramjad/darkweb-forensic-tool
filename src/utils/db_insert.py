@@ -4,7 +4,7 @@ import os
 
 load_dotenv()
 
-def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keywords, score, severity, file_hash, llm_summary):
+def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keywords, pgp_content, score, severity, file_hash, llm_summary):
     # Connect to database
     conn = mysql.connector.connect(
         host=os.getenv("DB_HOST"),
@@ -41,6 +41,15 @@ def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keyw
             INSERT INTO risk_keywords (case_id, keyword)
             VALUES (%s, %s)
         """, (case_db_id, keyword))
+
+    # Insert PGP content
+    for pgp_item in pgp_content:
+        pgp_type = pgp_item.get('type', 'unknown')
+        pgp_content_text = pgp_item.get('content', '')
+        cursor.execute("""
+            INSERT INTO pgp_content (case_id, pgp_type, pgp_content)
+            VALUES (%s, %s, %s)
+        """, (case_db_id, pgp_type, pgp_content_text))
 
     conn.commit()
     cursor.close()

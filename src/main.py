@@ -8,6 +8,7 @@ from datetime import datetime
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
+from src.extract.pgp_extractor import extract_pgp_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -70,6 +71,7 @@ for filename in os.listdir(directory):
         )
         emails_found = extract_emails_from_html(filepath, use_ai=USE_AI_MODEL, use_llm=USE_LLM, translate=TRANSLATE, use_rag=USE_RAG)
         keywords_found = detect_risk_keywords_from_html(filepath,use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL,translate=TRANSLATE)
+        pgp_content = extract_pgp_from_html(filepath, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL, translate=TRANSLATE)
         file_hash = calculate_sha256(filepath)
 
         # Collect suspicious prompts from all extractors
@@ -111,10 +113,18 @@ for filename in os.listdir(directory):
         else:
             print("✅ No risky keywords detected.")
 
+        if pgp_content:
+            for pgp_item in pgp_content:
+                pgp_type = pgp_item.get('type', 'unknown')
+                content = pgp_item.get('content', '')[:100] + "..." if len(pgp_item.get('content', '')) > 100 else pgp_item.get('content', '')
+                print(f"🔐 PGP {pgp_type.upper()} Found: {content}")
+        else:
+            print("✅ No PGP content detected.")
+
         print(f"🧠 LLM Summary: {llm_summary}")
 
         # 🔥 Risk Score
-        score = calculate_risk_score(payment_addresses, emails_found, keywords_found)
+        score = calculate_risk_score(payment_addresses, emails_found, keywords_found, pgp_content)
         print(f"🔥 Risk Score: {score}")
 
         severity = "Low"
@@ -134,6 +144,7 @@ for filename in os.listdir(directory):
             payment_addresses,
             emails_found,
             keywords_found,
+            pgp_content,
             score,
             severity,
             case_id,
@@ -149,6 +160,7 @@ for filename in os.listdir(directory):
             payment_addresses,
             emails_found,
             keywords_found,
+            pgp_content,
             score,
             severity,
             case_id,
@@ -166,6 +178,7 @@ for filename in os.listdir(directory):
                 emails_found,
                 payment_addresses,
                 keywords_found,
+                pgp_content,
                 score,
                 severity,
                 file_hash,
