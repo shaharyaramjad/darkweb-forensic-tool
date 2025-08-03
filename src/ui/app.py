@@ -11,6 +11,7 @@ from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.extract.pgp_extractor import extract_pgp_from_html
 from src.extract.financial_data_extractor import extract_financial_data_from_html
 from src.extract.shipping_address_extractor import extract_shipping_addresses_from_html
+from src.extract.username_extractor import extract_usernames_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -112,6 +113,7 @@ with tab1:
                 pgp_content = extract_pgp_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
                 financial_data = extract_financial_data_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
                 shipping_addresses = extract_shipping_addresses_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
+                usernames = extract_usernames_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
 
                 # LLM Summary
                 llm_summary = "LLM disabled."
@@ -124,7 +126,7 @@ with tab1:
                         llm_summary = f"⚠️ LLM error: {e}"
 
                 # Risk Score
-                score = calculate_risk_score(payments, emails, keywords, pgp_content, financial_data, shipping_addresses)
+                score = calculate_risk_score(payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames)
                 label = "Low" if score < 50 else "Medium" if score < 100 else "High"
 
                 # Timestamp + Reports
@@ -132,8 +134,8 @@ with tab1:
                 base_name = f"{case_id}_{os.path.splitext(file_name)[0]}_{timestamp}"
 
                 # Generate reports and store paths
-                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, score, label, case_id, investigator, notes, llm_summary)
-                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, score, label, case_id, investigator, notes, llm_summary)
+                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary)
+                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary)
 
                 generated_reports.append({
                     'file_name': file_name,
@@ -195,6 +197,15 @@ with tab1:
                                 st.write(f"- {data_type.upper()}: {content}")
                         else:
                             st.write("- None found")
+                        
+                        st.write("**👤 Usernames/Aliases:**")
+                        if usernames:
+                            for username_item in usernames:
+                                data_type = username_item.get('type', 'unknown')
+                                content = username_item.get('content', '')[:50] + "..." if len(username_item.get('content', '')) > 50 else username_item.get('content', '')
+                                st.write(f"- {data_type.upper()}: {content}")
+                        else:
+                            st.write("- None found")
                     
                     st.write(f"**🔥 Risk Score:** {score} ({label})")
 
@@ -210,6 +221,7 @@ with tab1:
                         pgp_content,
                         financial_data,
                         shipping_addresses,
+                        usernames,
                         score,
                         label,
                         file_hash,
@@ -383,6 +395,17 @@ SELECT
     c.created_at
 FROM shipping_addresses s
 JOIN case_metadata c ON s.case_id = c.id;""",
+            "View all usernames with case info": """
+SELECT 
+    u.id,
+    u.username_type,
+    u.content as username,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM usernames u
+JOIN case_metadata c ON u.case_id = c.id;""",
             "View drop locations only": """
 SELECT 
     s.id,
@@ -416,6 +439,39 @@ SELECT
 FROM shipping_addresses s
 JOIN case_metadata c ON s.case_id = c.id
 WHERE s.address_type = 'postal_address';""",
+            "View dark web usernames only": """
+SELECT 
+    u.id,
+    u.content as username,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM usernames u
+JOIN case_metadata c ON u.case_id = c.id
+WHERE u.username_type = 'dark_web_style';""",
+            "View forum usernames only": """
+SELECT 
+    u.id,
+    u.content as username,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM usernames u
+JOIN case_metadata c ON u.case_id = c.id
+WHERE u.username_type = 'forum_username';""",
+            "View professional aliases only": """
+SELECT 
+    u.id,
+    u.content as username,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM usernames u
+JOIN case_metadata c ON u.case_id = c.id
+WHERE u.username_type = 'professional_style';""",
             "High risk cases (score > 100)": "SELECT * FROM case_metadata WHERE score > 100;",
             "Recent cases (last 10)": "SELECT * FROM case_metadata ORDER BY created_at DESC LIMIT 10;",
             "Cases by severity level": "SELECT severity, COUNT(*) as count FROM case_metadata GROUP BY severity;",
@@ -445,7 +501,10 @@ SELECT
     f.content,
     s.id AS shipping_id,
     s.address_type,
-    s.content
+    s.content,
+    u.id AS username_id,
+    u.username_type,
+    u.content as username
 FROM case_metadata c
 LEFT JOIN extracted_emails e ON c.id = e.case_id
 LEFT JOIN extracted_payment_addresses p ON c.id = p.case_id
@@ -453,6 +512,7 @@ LEFT JOIN risk_keywords k ON c.id = k.case_id
 LEFT JOIN pgp_content pg ON c.id = pg.case_id
 LEFT JOIN financial_data f ON c.id = f.case_id
 LEFT JOIN shipping_addresses s ON c.id = s.case_id
+LEFT JOIN usernames u ON c.id = u.case_id
 ORDER BY c.id;"""
         }
 
@@ -468,14 +528,14 @@ ORDER BY c.id;"""
 
         with col2:
             st.write("**📊 Detailed Analysis**")
-            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info", "View all PGP content with case info", "View all financial data with case info", "View all shipping addresses with case info"]
+            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info", "View all PGP content with case info", "View all financial data with case info", "View all shipping addresses with case info", "View all usernames with case info"]
             for title in detailed_queries:
                 if st.button(f"📝 {title}", key=f"sample_{title}"):
                     st.session_state.selected_query = sample_queries[title]
                     st.rerun()
 
         st.write("**🔬 Advanced Queries**")
-        advanced_queries = ["Full details for specific case", "Complete forensic analysis (all data)", "View drop locations only", "View coordinates only", "View postal addresses only"]
+        advanced_queries = ["Full details for specific case", "Complete forensic analysis (all data)", "View drop locations only", "View coordinates only", "View postal addresses only", "View dark web usernames only", "View forum usernames only", "View professional aliases only"]
         for title in advanced_queries:
             if st.button(f"📝 {title}", key=f"sample_{title}"):
                 st.session_state.selected_query = sample_queries[title]
