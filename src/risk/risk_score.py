@@ -1,4 +1,4 @@
-def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None, financial_data=None, shipping_addresses=None):
+def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None, financial_data=None, shipping_addresses=None, usernames=None):
     score = 0
 
     # Score BTC
@@ -81,5 +81,32 @@ def calculate_risk_score(btc_addresses, emails, risky_keywords, pgp_content=None
     # Bonus for multiple shipping items
     if shipping_addresses and len(shipping_addresses) >= 2:
         score += 30  # Bonus for multiple shipping items
+    
+    # Score usernames/aliases
+    if usernames:
+        for username_item in usernames:
+            data_type = username_item.get('type', 'unknown')
+            if data_type == 'dark_web_style':
+                score += 25  # High risk for dark web usernames
+            elif data_type == 'forum_username':
+                score += 20  # Medium-high risk for forum usernames
+            elif data_type == 'social_media_style':
+                score += 15  # Medium risk for social media handles
+            elif data_type == 'cryptocurrency_style':
+                score += 20  # Medium-high risk for crypto handles
+            elif data_type == 'professional_style':
+                score += 15  # Medium risk for professional aliases
+            elif data_type == 'gaming_style':
+                score += 10  # Lower risk for gaming handles
+            elif data_type == 'quoted_usernames':
+                score += 15  # Medium risk for quoted usernames
+            elif data_type == 'signature_style':
+                score += 10  # Lower risk for signature usernames
+            else:
+                score += 5   # Default risk for other usernames
+    
+    # Bonus for multiple usernames
+    if usernames and len(usernames) >= 2:
+        score += 20  # Bonus for multiple usernames
 
     return score
