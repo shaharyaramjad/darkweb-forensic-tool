@@ -65,3 +65,25 @@ CREATE TABLE usernames (
     content TEXT,
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
+
+CREATE TABLE document_advertisements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    ad_type VARCHAR(100),
+    content TEXT,
+    suspicious_level VARCHAR(50),
+    method VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);
+
+CREATE TABLE suspicious_urls (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    url TEXT,
+    domain VARCHAR(255),
+    suspicious_reason VARCHAR(255),
+    risk_level VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);

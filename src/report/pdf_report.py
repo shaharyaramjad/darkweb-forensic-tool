@@ -6,7 +6,7 @@ import textwrap
 
 def generate_pdf_report(
     filename, hash_value, btc_list, email_list, keywords, pgp_content, financial_data, shipping_addresses, usernames, score,
-    level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
+    level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None, document_ads_result=None, virus_detection_result=None
 ):
     os.makedirs("reports", exist_ok=True)
     report_filename = f"report_{filename.replace('.html', '')}.pdf"
@@ -91,6 +91,57 @@ def generate_pdf_report(
             draw_line(f"- {data_type.upper()}: {content}", indent=70)
     else:
         draw_line("- None", indent=70)
+
+    # ─── Document Advertisement Detection Results ──────────────
+    if document_ads_result and document_ads_result.get('total_found', 0) > 0:
+        draw_line("📄 Document Advertisements:", font="Helvetica-Bold", size=13, gap=20)
+        draw_line(f"Total Items Found: {document_ads_result['total_found']}", indent=70)
+        
+        # Document advertisements
+        if document_ads_result.get('document_advertisements'):
+            draw_line("Document Ads:", font="Helvetica-Bold", size=12, gap=15)
+            for ad in document_ads_result['document_advertisements']:
+                risk_icon = "🔴" if ad['suspicious_level'] == 'high' else "🟡"
+                content = ad['content'][:80] + "..." if len(ad['content']) > 80 else ad['content']
+                draw_line(f"{risk_icon} {ad['type']}: {content}", indent=70, gap=15)
+        
+        # Suspicious URLs
+        if document_ads_result.get('suspicious_urls'):
+            draw_line("Suspicious URLs:", font="Helvetica-Bold", size=12, gap=15)
+            for url_data in document_ads_result['suspicious_urls']:
+                risk_icon = "🔴" if url_data['risk_level'] == 'high' else "🟡"
+                url = url_data['url'][:60] + "..." if len(url_data['url']) > 60 else url_data['url']
+                draw_line(f"{risk_icon} {url}", indent=70, gap=15)
+                draw_line(f"   Reason: {url_data['suspicious_reason']}", indent=90, gap=12)
+                if url_data.get('file_extension'):
+                    draw_line(f"   File: {url_data['file_extension']}", indent=90, gap=12)
+    else:
+        draw_line("📄 Document Advertisements: None found", gap=20)
+
+    # ─── Virus Detection Results ──────────────────────────────
+    if virus_detection_result and virus_detection_result.get('success'):
+        draw_line("🦠 Virus Detection Results:", font="Helvetica-Bold", size=13, gap=20)
+        
+        api_results = virus_detection_result.get('api_results', {})
+        draw_line(f"URLs Checked: {api_results.get('total_checked', 0)}", indent=70)
+        draw_line(f"Malicious URLs: {api_results.get('malicious_found', 0)}", indent=70)
+        draw_line(f"High Risk URLs: {len(api_results.get('high_risk_urls', []))}", indent=70)
+        
+        # Virus detection report
+        if virus_detection_result.get('report'):
+            report = virus_detection_result['report']
+            draw_line("Summary:", font="Helvetica-Bold", size=12, gap=15)
+            draw_line(f"Executable Files: {report['summary'].get('executable_files', 0)}", indent=70)
+            draw_line(f"Malicious Downloads: {report['summary'].get('malicious_file_downloads', 0)}", indent=70)
+            draw_line(f"Critical Threats: {report['summary'].get('critical_threats', 0)}", indent=70)
+            
+            # Recommendations
+            if report.get('recommendations'):
+                draw_line("Recommendations:", font="Helvetica-Bold", size=12, gap=15)
+                for rec in report['recommendations']:
+                    draw_line(f"• {rec}", indent=70, gap=15)
+    else:
+        draw_line("🦠 Virus Detection Results: Not available", gap=20)
 
     draw_line(f"🔥 Risk Score: {score}")
     draw_line(f"🔒 Severity Level: {level.upper()}", gap=30)

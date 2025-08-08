@@ -393,85 +393,12 @@ def deduplicate_results(all_results):
         "total_found": len(unique_results)
     }
 
-def clean_usernames(username_data):
-    """Clean and validate username data."""
-    cleaned_data = []
-    
-    # Common false positive words to exclude
-    false_positives = {
-        'web', 'market', 'place', 'information', 'contact', 'shipping', 
-        'delivery', 'payment', 'escrow', 'bitcoin', 'ethereum', 'monero',
-        'telegram', 'signal', 'pgp', 'public', 'key', 'begin', 'end',
-        'signature', 'encryption', 'required', 'for', 'all', 'communications',
-        'tracking', 'available', 'premium', 'orders', 'financial', 'services',
-        'swift', 'product', 'description', 'customer', 'feedback', 'support',
-        'help', 'backup', 'username', 'vendor', 'reliable', 'secure',
-        'anonymous', 'stealth', 'vacuum', 'seal', 'decoy', 'package',
-        'packaging', 'items', 'included', 'primary', 'handle', 'dark',
-        'cannabis', 'weed', 'sample', 'pack', 'illegal', 'contraband',
-        'restricted', 'dangerous', 'prohibited', 'normally', 'days',
-        'ereum', 'dot', 'nal', 'nature', 'here', 'best', 'around',
-        # Financial terms that are not usernames
-        'credit', 'card', 'cvv', 'expiry', 'iban', 'bank', 'account',
-        'routing', 'document', 'buy', 'fake', 'passport', 'high', 'quality',
-        'replica', 'driver', 'license', 'authentic', 'looking', 'sale',
-        'underage', 'friendly', 'counterfeit', 'service', 'social', 'security',
-        'number', 'dumps', 'fresh', 'stolen', 'access', 'money', 'laundering',
-        # Address components
-        'main', 'street', 'new', 'york', 'oak', 'avenue', 'los', 'angeles',
-        'pine', 'road', 'chicago', 'elm', 'drive', 'miami', 'drop', 'locations',
-        'central', 'park', 'near', 'fountain', 'pickup', 'grand', 'station',
-        'times', 'square', 'brooklyn', 'bridge', 'empire', 'state', 'building',
-        'gps', 'coordinates', 'latitude', 'longitude', 'zip', 'manhattan',
-        'beverly', 'hills', 'loop', 'area', 'downtown', 'london', 'canada',
-        'toronto', 'landmark', 'references', 'old', 'red', 'blue', 'door',
-        'coffee', 'shop', 'tree', 'behind', 'station', 'yellow', 'mailbox',
-        'clock', 'tower', 'square', 'time', 'based', 'instructions', 'sharp',
-        'during', 'business', 'hours', 'between', 'schedule', 'monday', 'friday',
-        'ready', 'daily', 'above', 'deliver', 'via', 'courier', 'service',
-        'send', 'drop', 'location', 'mail', 'specified', 'post', 'given',
-        'safety', 'protocols', 'discrete', 'leave', 'answer', 'use', 'plain',
-        'return', 'needed', 'alternative', 'queens', 'ave', 'fallback', 'bronx',
-        'coded', 'house', 'usual', 'spot', 'friendly', 'factory', 'green',
-        'email', 'darkmarket', 'onion', 'block', 'deliveries', 'are', 'discrete',
-        'questions', 'asked'
-    }
-    
-    for item in username_data:
-        content = item['content'].lower().strip()
-        data_type = item['type']
-        
-        # Skip if it's a known false positive
-        if content in false_positives:
-            continue
-            
-        # Skip usernames that start with underscore (incomplete)
-        if item['content'].startswith('_'):
-            continue
-            
-        # Skip if it's just a common word
-        if len(content) <= 4 and content in ['name', 'help', 'ure', 'web', 'dot']:
-            continue
-            
-        # Skip if it's a fragment
-        if len(content) <= 2:
-            continue
-            
-        # Skip if it's just numbers
-        if re.match(r'^\d+$', content):
-            continue
-            
-        # Skip if it's a common English word
-        if content in ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'have', 'will', 'been', 'they', 'were', 'said', 'each', 'which', 'their', 'time', 'would', 'there', 'could', 'other', 'than', 'first', 'water', 'been', 'call', 'who', 'oil', 'sit', 'now', 'find', 'down', 'day', 'did', 'get', 'come', 'made', 'may', 'part']:
-            continue
-            
-        # Basic validation - must be alphanumeric with optional underscore/dash/dot
-        if re.match(r'^[A-Za-z0-9_\-\.]{3,20}$', item['content']):
-            # Additional validation for better quality
-            if not re.match(r'^(?:http|https|www|com|org|net|edu|gov)$', item['content'], re.IGNORECASE):
-                cleaned_data.append(item)
-    
-    return cleaned_data
+from src.extract.dynamic_validator import dynamic_validator
+
+def clean_usernames(username_data, text_context=""):
+    """Clean and validate username data using dynamic validation."""
+    # Use dynamic validator instead of static lists
+    return dynamic_validator.validate_usernames(username_data, text_context)
 
 def extract_usernames_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
     """Extract usernames using parallel processing and deduplication"""
@@ -559,7 +486,7 @@ def extract_usernames_from_html(file_path, use_llm=True, use_rag=True, use_ai=Tr
                 print(f"  {method.upper()}: {len(items)} items")
             
             # Clean and validate results
-            cleaned_results = clean_usernames(final_results["unique_results"])
+            cleaned_results = clean_usernames(final_results["unique_results"], text)
             return cleaned_results
 
     except Exception as e:
