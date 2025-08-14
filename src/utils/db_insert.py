@@ -4,7 +4,7 @@ import os
 
 load_dotenv()
 
-def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, severity, file_hash, llm_summary):
+def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, severity, file_hash, llm_summary, document_ads_data=None):
     # Connect to database
     conn = mysql.connector.connect(
         host=os.getenv("DB_HOST"),
@@ -77,6 +77,30 @@ def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keyw
             INSERT INTO usernames (case_id, username_type, content)
             VALUES (%s, %s, %s)
         """, (case_db_id, data_type, content))
+
+    # Insert document advertisements
+    if document_ads_data:
+        # Insert document advertisements
+        for ad in document_ads_data.get('document_advertisements', []):
+            ad_type = ad.get('type', 'unknown')
+            content = ad.get('content', '')
+            suspicious_level = ad.get('suspicious_level', 'medium')
+            method = ad.get('method', 'unknown')
+            cursor.execute("""
+                INSERT INTO document_advertisements (case_id, ad_type, content, suspicious_level, method)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (case_db_id, ad_type, content, suspicious_level, method))
+        
+        # Insert suspicious URLs
+        for url_data in document_ads_data.get('suspicious_urls', []):
+            url = url_data.get('url', '')
+            domain = url_data.get('domain', '')
+            suspicious_reason = url_data.get('suspicious_reason', '')
+            risk_level = url_data.get('risk_level', 'medium')
+            cursor.execute("""
+                INSERT INTO suspicious_urls (case_id, url, domain, suspicious_reason, risk_level)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (case_db_id, url, domain, suspicious_reason, risk_level))
 
     conn.commit()
     cursor.close()

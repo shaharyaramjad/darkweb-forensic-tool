@@ -50,6 +50,8 @@ financial_patterns = {
     'swift_code': [
         r'\b[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b',  # SWIFT/BIC code
         r'\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?\b',  # Alternative SWIFT
+        r'\b(?:SWIFT|BIC|BANK)[:\s]*[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b',  # SWIFT with context
+        r'\b(?:SWIFT|BIC|BANK)[:\s]*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?\b',  # Alternative with context
     ],
     'bank_account': [
         r'\b(?:account|acc|acct)[:\s]*(\d{8,17})\b',
@@ -309,45 +311,12 @@ def deduplicate_results(all_results):
         "total_found": len(unique_results)
     }
 
-def clean_financial_data(financial_data):
-    """Clean and validate financial data."""
-    cleaned_data = []
-    
-    for item in financial_data:
-        content = item['content']
-        data_type = item['type']
-        
-        # Basic validation based on type
-        if data_type == 'credit_card':
-            # Remove spaces and dashes, validate length
-            cleaned = re.sub(r'[^\d]', '', content)
-            if len(cleaned) in [13, 15, 16] and cleaned.isdigit():
-                item['content'] = cleaned
-                cleaned_data.append(item)
-        
-        elif data_type == 'cvv':
-            # Validate CVV length
-            cleaned = re.sub(r'[^\d]', '', content)
-            if len(cleaned) in [3, 4] and cleaned.isdigit():
-                item['content'] = cleaned
-                cleaned_data.append(item)
-        
-        elif data_type == 'expiry_date':
-            # Validate date format
-            if re.match(r'^(0[1-9]|1[0-2])/(2[0-9]|3[0-9]|20[2-9][0-9])$', content):
-                cleaned_data.append(item)
-        
-        elif data_type in ['iban', 'swift_code']:
-            # Validate format
-            if len(content) >= 8:
-                cleaned_data.append(item)
-        
-        else:
-            # For other types, just add if not empty
-            if content.strip():
-                cleaned_data.append(item)
-    
-    return cleaned_data
+from src.extract.dynamic_validator import dynamic_validator
+
+def clean_financial_data(financial_data, text_context=""):
+    """Clean and validate financial data using dynamic validation."""
+    # Use dynamic validator instead of static lists
+    return dynamic_validator.validate_financial_data(financial_data, text_context)
 
 def extract_financial_data_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
     """Extract financial data using parallel processing and deduplication"""
@@ -435,7 +404,7 @@ def extract_financial_data_from_html(file_path, use_llm=True, use_rag=True, use_
                 print(f"  {method.upper()}: {len(items)} items")
             
             # Clean and validate results
-            cleaned_results = clean_financial_data(final_results["unique_results"])
+            cleaned_results = clean_financial_data(final_results["unique_results"], text)
             return cleaned_results
 
     except Exception as e:

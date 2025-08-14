@@ -322,36 +322,12 @@ def deduplicate_results(all_results):
         "total_found": len(unique_results)
     }
 
-def clean_shipping_addresses(shipping_data):
-    """Clean and validate shipping address data."""
-    cleaned_data = []
-    
-    for item in shipping_data:
-        content = item['content']
-        data_type = item['type']
-        
-        # Basic validation based on type
-        if data_type == 'postal_address':
-            # Validate address format
-            if re.search(r'\d+', content) and re.search(r'[A-Za-z]', content):
-                cleaned_data.append(item)
-        
-        elif data_type == 'postal_code':
-            # Validate postal code format
-            if re.match(r'^[A-Z0-9\s\-]{3,10}$', content, re.IGNORECASE):
-                cleaned_data.append(item)
-        
-        elif data_type == 'coordinates':
-            # Validate coordinate format
-            if re.search(r'\d+\.\d+', content):
-                cleaned_data.append(item)
-        
-        else:
-            # For other types, just add if not empty
-            if content.strip():
-                cleaned_data.append(item)
-    
-    return cleaned_data
+from src.extract.dynamic_validator import dynamic_validator
+
+def clean_shipping_addresses(shipping_data, text_context=""):
+    """Clean and validate shipping address data using dynamic validation."""
+    # Use dynamic validator instead of static lists
+    return dynamic_validator.validate_shipping_addresses(shipping_data, text_context)
 
 def extract_shipping_addresses_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
     """Extract shipping addresses using parallel processing and deduplication"""
@@ -439,7 +415,7 @@ def extract_shipping_addresses_from_html(file_path, use_llm=True, use_rag=True, 
                 print(f"  {method.upper()}: {len(items)} items")
             
             # Clean and validate results
-            cleaned_results = clean_shipping_addresses(final_results["unique_results"])
+            cleaned_results = clean_shipping_addresses(final_results["unique_results"], text)
             return cleaned_results
 
     except Exception as e:

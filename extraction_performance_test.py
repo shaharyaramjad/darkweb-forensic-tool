@@ -6,6 +6,13 @@ import pandas as pd
 from src.extract.email_extractor import extract_emails_from_html
 from src.extract.risk_keyword_detector import detect_risk_keywords_from_html
 from src.extract.extract_payment_addresses_from_html import extract_payment_addresses_from_html
+from src.extract.pgp_extractor import extract_pgp_from_html
+from src.extract.financial_data_extractor import extract_financial_data_from_html
+from src.extract.shipping_address_extractor import extract_shipping_addresses_from_html
+from src.extract.username_extractor import extract_usernames_from_html
+from src.extract.document_advertisement_detector import extract_document_advertisements_from_html
+from src.utils.virus_detection_api import VirusDetectionAPI
+from src.extract.dynamic_validator import dynamic_validator
 import time
 from datetime import datetime
 import glob
@@ -40,6 +47,30 @@ def test_all_extraction_methods(filepath, page_name):
             'rag_llm': [],       # RAG+LLM fallback
             'llm_only': []       # LLM-only fallback
         },
+        'pgp': {
+            'regex_ai': [],      # Regex + AI (StarPII)
+            'rag_llm': [],       # RAG+LLM fallback
+            'llm_only': []       # LLM-only fallback
+        },
+        'financial': {
+            'regex_ai': [],      # Regex + AI (StarPII) + Dynamic Validation
+            'rag_llm': [],       # RAG+LLM fallback
+            'llm_only': []       # LLM-only fallback
+        },
+        'shipping': {
+            'regex_ai': [],      # Regex + AI (StarPII) + Dynamic Validation
+            'rag_llm': [],       # RAG+LLM fallback
+            'llm_only': []       # LLM-only fallback
+        },
+        'usernames': {
+            'regex_ai': [],      # Regex + AI (StarPII) + Dynamic Validation
+            'rag_llm': [],       # RAG+LLM fallback
+            'llm_only': []       # LLM-only fallback
+        },
+        'document_ads': {
+            'ai_regex': [],      # Enhanced document advertisement detection
+            'virus_detection': [] # Virus detection integration
+        },
         'times': {
             'ai_regex': 0, 'rag_llm': 0, 'llm_only': 0,
             'ai_zero_shot': 0, 'regex_spacy': 0
@@ -61,6 +92,31 @@ def test_all_extraction_methods(filepath, page_name):
         # Payment extraction with AI (Regex + spaCy)
         payments_ai = extract_payment_addresses_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
         results['payments']['regex_spacy'] = payments_ai
+        
+        # PGP extraction with AI (Regex + StarPII)
+        pgp_ai = extract_pgp_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
+        results['pgp']['regex_ai'] = pgp_ai
+        
+        # Financial data extraction with AI (Regex + StarPII)
+        financial_ai = extract_financial_data_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
+        results['financial']['regex_ai'] = financial_ai
+        
+        # Shipping addresses extraction with AI (Regex + StarPII)
+        shipping_ai = extract_shipping_addresses_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
+        results['shipping']['regex_ai'] = shipping_ai
+        
+        # Usernames extraction with AI (Regex + StarPII) + Dynamic Validation
+        usernames_ai = extract_usernames_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
+        results['usernames']['regex_ai'] = usernames_ai
+        
+        # Document advertisement detection with AI (Enhanced)
+        document_ads_ai = extract_document_advertisements_from_html(filepath, use_llm=False, use_rag=False, use_ai=True, translate=False)
+        results['document_ads']['ai_regex'] = document_ads_ai
+        
+        # Virus detection integration
+        virus_api = VirusDetectionAPI()
+        virus_detection = virus_api.generate_virus_detection_report(document_ads_ai)
+        results['document_ads']['virus_detection'] = virus_detection
         
         ai_time = time.time() - start_time
         results['times']['ai_regex'] = ai_time
@@ -88,6 +144,22 @@ def test_all_extraction_methods(filepath, page_name):
         payments_rag = extract_payment_addresses_from_html(filepath, use_llm=True, use_rag=True, use_ai=False, translate=False)
         results['payments']['rag_llm'] = payments_rag
         
+        # PGP extraction with RAG+LLM
+        pgp_rag = extract_pgp_from_html(filepath, use_llm=True, use_rag=True, use_ai=False, translate=False)
+        results['pgp']['rag_llm'] = pgp_rag
+        
+        # Financial data extraction with RAG+LLM
+        financial_rag = extract_financial_data_from_html(filepath, use_llm=True, use_rag=True, use_ai=False, translate=False)
+        results['financial']['rag_llm'] = financial_rag
+        
+        # Shipping addresses extraction with RAG+LLM
+        shipping_rag = extract_shipping_addresses_from_html(filepath, use_llm=True, use_rag=True, use_ai=False, translate=False)
+        results['shipping']['rag_llm'] = shipping_rag
+        
+        # Usernames extraction with RAG+LLM
+        usernames_rag = extract_usernames_from_html(filepath, use_llm=True, use_rag=True, use_ai=False, translate=False)
+        results['usernames']['rag_llm'] = usernames_rag
+        
         rag_time = time.time() - start_time
         results['times']['rag_llm'] = rag_time
         print(f"✅ RAG+LLM completed in {rag_time:.2f}s")
@@ -112,6 +184,22 @@ def test_all_extraction_methods(filepath, page_name):
         payments_llm = extract_payment_addresses_from_html(filepath, use_llm=True, use_rag=False, use_ai=False, translate=False)
         results['payments']['llm_only'] = payments_llm
         
+        # PGP extraction without RAG
+        pgp_llm = extract_pgp_from_html(filepath, use_llm=True, use_rag=False, use_ai=False, translate=False)
+        results['pgp']['llm_only'] = pgp_llm
+        
+        # Financial data extraction without RAG
+        financial_llm = extract_financial_data_from_html(filepath, use_llm=True, use_rag=False, use_ai=False, translate=False)
+        results['financial']['llm_only'] = financial_llm
+        
+        # Shipping addresses extraction without RAG
+        shipping_llm = extract_shipping_addresses_from_html(filepath, use_llm=True, use_rag=False, use_ai=False, translate=False)
+        results['shipping']['llm_only'] = shipping_llm
+        
+        # Usernames extraction without RAG
+        usernames_llm = extract_usernames_from_html(filepath, use_llm=True, use_rag=False, use_ai=False, translate=False)
+        results['usernames']['llm_only'] = usernames_llm
+        
         llm_time = time.time() - start_time
         results['times']['llm_only'] = llm_time
         print(f"✅ LLM-only completed in {llm_time:.2f}s")
@@ -125,9 +213,44 @@ def test_all_extraction_methods(filepath, page_name):
     print(f"   📧 Emails - AI+Regex: {len(results['emails']['ai_regex'])} | RAG+LLM: {len(results['emails']['rag_llm'])} | LLM-only: {len(results['emails']['llm_only'])}")
     print(f"   🔍 Keywords - AI Zero-shot: {len(results['keywords']['ai_zero_shot'])} | RAG+LLM: {len(results['keywords']['rag_llm'])} | LLM-only: {len(results['keywords']['llm_only'])}")
     print(f"   💰 Payments - Regex+spaCy: {len(results['payments']['regex_spacy'])} | RAG+LLM: {len(results['payments']['rag_llm'])} | LLM-only: {len(results['payments']['llm_only'])}")
+    print(f"   🔐 PGP - Regex+AI: {len(results['pgp']['regex_ai'])} | RAG+LLM: {len(results['pgp']['rag_llm'])} | LLM-only: {len(results['pgp']['llm_only'])}")
+    print(f"   💳 Financial - Regex+AI+Dynamic: {len(results['financial']['regex_ai'])} | RAG+LLM: {len(results['financial']['rag_llm'])} | LLM-only: {len(results['financial']['llm_only'])}")
+    print(f"   📦 Shipping - Regex+AI+Dynamic: {len(results['shipping']['regex_ai'])} | RAG+LLM: {len(results['shipping']['rag_llm'])} | LLM-only: {len(results['shipping']['llm_only'])}")
+    print(f"   👤 Usernames - Regex+AI+Dynamic: {len(results['usernames']['regex_ai'])} | RAG+LLM: {len(results['usernames']['rag_llm'])} | LLM-only: {len(results['usernames']['llm_only'])}")
+    print(f"   📄 Document Ads - AI+Regex: {len(results['document_ads']['ai_regex'])} | Virus Detection: {len(results['document_ads']['virus_detection'])}")
     print(f"   ⏱️  Time - AI: {results['times']['ai_regex']:.2f}s | RAG+LLM: {results['times']['rag_llm']:.2f}s | LLM-only: {results['times']['llm_only']:.2f}s")
     
     return results
+
+def calculate_dynamic_column_widths(num_columns, page_width=11.7*inch, min_col_width=0.4*inch, max_col_width=2*inch):
+    """Dynamically calculate column widths based on page size and number of columns"""
+    available_width = page_width - 0.5*inch  # Leave margin
+    base_width = available_width / num_columns
+    
+    # Ensure width is within bounds
+    col_width = max(min_col_width, min(max_col_width, base_width))
+    
+    # Return list of equal widths
+    return [col_width] * num_columns
+
+def get_dynamic_font_size(num_columns):
+    """Dynamically determine font size based on number of columns"""
+    if num_columns <= 4:
+        return 9
+    elif num_columns <= 8:
+        return 8
+    elif num_columns <= 12:
+        return 7
+    elif num_columns <= 16:
+        return 6
+    else:
+        return 5
+
+def truncate_text_for_table(text, max_length=15):
+    """Truncate text to fit in table cells"""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length-3] + "..."
 
 def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     """Create a comprehensive PDF report with all extraction method comparisons"""
@@ -183,12 +306,20 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     keyword_llm_improvement = ((total_stats['keywords_llm'] - total_stats['keywords_ai']) / max(total_stats['keywords_ai'], 1)) * 100
     payment_rag_improvement = ((total_stats['payments_rag'] - total_stats['payments_ai']) / max(total_stats['payments_ai'], 1)) * 100
     payment_llm_improvement = ((total_stats['payments_llm'] - total_stats['payments_ai']) / max(total_stats['payments_ai'], 1)) * 100
+    pgp_rag_improvement = ((total_stats['pgp_rag'] - total_stats['pgp_ai']) / max(total_stats['pgp_ai'], 1)) * 100
+    pgp_llm_improvement = ((total_stats['pgp_llm'] - total_stats['pgp_ai']) / max(total_stats['pgp_ai'], 1)) * 100
+    financial_rag_improvement = ((total_stats['financial_rag'] - total_stats['financial_ai']) / max(total_stats['financial_ai'], 1)) * 100
+    financial_llm_improvement = ((total_stats['financial_llm'] - total_stats['financial_ai']) / max(total_stats['financial_ai'], 1)) * 100
+    shipping_rag_improvement = ((total_stats['shipping_rag'] - total_stats['shipping_ai']) / max(total_stats['shipping_ai'], 1)) * 100
+    shipping_llm_improvement = ((total_stats['shipping_llm'] - total_stats['shipping_ai']) / max(total_stats['shipping_ai'], 1)) * 100
+    usernames_rag_improvement = ((total_stats['usernames_rag'] - total_stats['usernames_ai']) / max(total_stats['usernames_ai'], 1)) * 100
+    usernames_llm_improvement = ((total_stats['usernames_llm'] - total_stats['usernames_ai']) / max(total_stats['usernames_ai'], 1)) * 100
     
     summary_text = f"""
     This report compares all extraction methods used in the dark web forensic tool.
     
     <b>Methods Tested:</b>
-    • AI Models: StarPII (emails), Zero-shot (keywords), spaCy (payments)
+    • AI Models: StarPII (emails, PGP, financial, shipping, usernames), Zero-shot (keywords), spaCy (payments)
     • RAG+LLM: Knowledge-augmented LLM fallback
     • LLM-only: Standard LLM without knowledge base
     
@@ -197,11 +328,19 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     • Emails: AI+Regex found {total_stats['emails_ai']}, RAG+LLM found {total_stats['emails_rag']}, LLM-only found {total_stats['emails_llm']}
     • Keywords: AI Zero-shot found {total_stats['keywords_ai']}, RAG+LLM found {total_stats['keywords_rag']}, LLM-only found {total_stats['keywords_llm']}
     • Payments: Regex+spaCy found {total_stats['payments_ai']}, RAG+LLM found {total_stats['payments_rag']}, LLM-only found {total_stats['payments_llm']}
+    • PGP: Regex+AI found {total_stats['pgp_ai']}, RAG+LLM found {total_stats['pgp_rag']}, LLM-only found {total_stats['pgp_llm']}
+    • Financial: Regex+AI found {total_stats['financial_ai']}, RAG+LLM found {total_stats['financial_rag']}, LLM-only found {total_stats['financial_llm']}
+    • Shipping: Regex+AI found {total_stats['shipping_ai']}, RAG+LLM found {total_stats['shipping_rag']}, LLM-only found {total_stats['shipping_llm']}
+    • Usernames: Regex+AI found {total_stats['usernames_ai']}, RAG+LLM found {total_stats['usernames_rag']}, LLM-only found {total_stats['usernames_llm']}
     
     <b>Performance Improvements:</b>
     • Email extraction: RAG+LLM {email_rag_improvement:+.1f}% vs AI, LLM-only {email_llm_improvement:+.1f}% vs AI
     • Keyword detection: RAG+LLM {keyword_rag_improvement:+.1f}% vs AI, LLM-only {keyword_llm_improvement:+.1f}% vs AI
     • Payment extraction: RAG+LLM {payment_rag_improvement:+.1f}% vs AI, LLM-only {payment_llm_improvement:+.1f}% vs AI
+    • PGP extraction: RAG+LLM {pgp_rag_improvement:+.1f}% vs AI, LLM-only {pgp_llm_improvement:+.1f}% vs AI
+    • Financial extraction: RAG+LLM {financial_rag_improvement:+.1f}% vs AI, LLM-only {financial_llm_improvement:+.1f}% vs AI
+    • Shipping extraction: RAG+LLM {shipping_rag_improvement:+.1f}% vs AI, LLM-only {shipping_llm_improvement:+.1f}% vs AI
+    • Username extraction: RAG+LLM {usernames_rag_improvement:+.1f}% vs AI, LLM-only {usernames_llm_improvement:+.1f}% vs AI
     """
     
     story.append(Paragraph(summary_text, styles['Normal']))
@@ -218,13 +357,13 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     email_table_data = [['Page', 'AI+Regex', 'RAG+LLM', 'LLM-only']]
     for result in all_results:
         email_table_data.append([
-            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            truncate_text_for_table(result['page'], 18),
             str(len(result['emails_ai'])),
             str(len(result['emails_rag'])),
             str(len(result['emails_llm']))
         ])
     
-    email_table = Table(email_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    email_table = Table(email_table_data, colWidths=calculate_dynamic_column_widths(4))
     email_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -248,13 +387,13 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     keyword_table_data = [['Page', 'AI Zero-shot', 'RAG+LLM', 'LLM-only']]
     for result in all_results:
         keyword_table_data.append([
-            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            truncate_text_for_table(result['page'], 18),
             str(len(result['keywords_ai'])),
             str(len(result['keywords_rag'])),
             str(len(result['keywords_llm']))
         ])
     
-    keyword_table = Table(keyword_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    keyword_table = Table(keyword_table_data, colWidths=calculate_dynamic_column_widths(4))
     keyword_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -278,13 +417,13 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     payment_table_data = [['Page', 'Regex+spaCy', 'RAG+LLM', 'LLM-only']]
     for result in all_results:
         payment_table_data.append([
-            result['page'][:20] + '...' if len(result['page']) > 20 else result['page'],
+            truncate_text_for_table(result['page'], 18),
             str(len(result['payments_ai'])),
             str(len(result['payments_rag'])),
             str(len(result['payments_llm']))
         ])
     
-    payment_table = Table(payment_table_data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+    payment_table = Table(payment_table_data, colWidths=calculate_dynamic_column_widths(4))
     payment_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -301,21 +440,144 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     story.append(payment_table)
     story.append(Spacer(1, 15))
     
+    # Table 4: PGP Extraction Results
+    story.append(Paragraph("PGP Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    pgp_table_data = [['Page', 'Regex+AI', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        pgp_table_data.append([
+            truncate_text_for_table(result['page'], 18),
+            str(len(result['pgp_ai'])),
+            str(len(result['pgp_rag'])),
+            str(len(result['pgp_llm']))
+        ])
+    
+    pgp_table = Table(pgp_table_data, colWidths=calculate_dynamic_column_widths(4))
+    pgp_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(pgp_table)
+    story.append(Spacer(1, 15))
+    
+    # Table 5: Financial Data Extraction Results
+    story.append(Paragraph("Financial Data Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    financial_table_data = [['Page', 'Regex+AI', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        financial_table_data.append([
+            truncate_text_for_table(result['page'], 18),
+            str(len(result['financial_ai'])),
+            str(len(result['financial_rag'])),
+            str(len(result['financial_llm']))
+        ])
+    
+    financial_table = Table(financial_table_data, colWidths=calculate_dynamic_column_widths(4))
+    financial_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(financial_table)
+    story.append(Spacer(1, 15))
+    
+    # Table 6: Shipping Address Extraction Results
+    story.append(Paragraph("Shipping Address Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    shipping_table_data = [['Page', 'Regex+AI', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        shipping_table_data.append([
+            truncate_text_for_table(result['page'], 18),
+            str(len(result['shipping_ai'])),
+            str(len(result['shipping_rag'])),
+            str(len(result['shipping_llm']))
+        ])
+    
+    shipping_table = Table(shipping_table_data, colWidths=calculate_dynamic_column_widths(4))
+    shipping_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(shipping_table)
+    story.append(Spacer(1, 15))
+    
+    # Table 7: Username Extraction Results
+    story.append(Paragraph("Username Extraction Results", styles['Heading3']))
+    story.append(Spacer(1, 6))
+    
+    username_table_data = [['Page', 'Regex+AI', 'RAG+LLM', 'LLM-only']]
+    for result in all_results:
+        username_table_data.append([
+            truncate_text_for_table(result['page'], 18),
+            str(len(result['usernames_ai'])),
+            str(len(result['usernames_rag'])),
+            str(len(result['usernames_llm']))
+        ])
+    
+    username_table = Table(username_table_data, colWidths=calculate_dynamic_column_widths(4))
+    username_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(username_table)
+    story.append(Spacer(1, 15))
+    
     # Summary Table
     story.append(Paragraph("Summary Statistics", styles['Heading3']))
     story.append(Spacer(1, 6))
     
     summary_table_data = [
-        ['Method', 'Emails', 'Keywords', 'Payments', 'Total'],
+        ['Method', 'Emails', 'Keywords', 'Payments', 'PGP', 'Financial', 'Shipping', 'Usernames', 'Total'],
         ['AI Models', str(total_stats['emails_ai']), str(total_stats['keywords_ai']), str(total_stats['payments_ai']), 
-         str(total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai'])],
+         str(total_stats['pgp_ai']), str(total_stats['financial_ai']), str(total_stats['shipping_ai']), str(total_stats['usernames_ai']),
+         str(total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai'] + total_stats['pgp_ai'] + total_stats['financial_ai'] + total_stats['shipping_ai'] + total_stats['usernames_ai'])],
         ['RAG+LLM', str(total_stats['emails_rag']), str(total_stats['keywords_rag']), str(total_stats['payments_rag']),
-         str(total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag'])],
+         str(total_stats['pgp_rag']), str(total_stats['financial_rag']), str(total_stats['shipping_rag']), str(total_stats['usernames_rag']),
+         str(total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag'] + total_stats['pgp_rag'] + total_stats['financial_rag'] + total_stats['shipping_rag'] + total_stats['usernames_rag'])],
         ['LLM-only', str(total_stats['emails_llm']), str(total_stats['keywords_llm']), str(total_stats['payments_llm']),
-         str(total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm'])]
+         str(total_stats['pgp_llm']), str(total_stats['financial_llm']), str(total_stats['shipping_llm']), str(total_stats['usernames_llm']),
+         str(total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm'] + total_stats['pgp_llm'] + total_stats['financial_llm'] + total_stats['shipping_llm'] + total_stats['usernames_llm'])]
     ]
     
-    summary_table = Table(summary_table_data, colWidths=[1.5*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+    summary_table = Table(summary_table_data, colWidths=calculate_dynamic_column_widths(9))
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -337,11 +599,11 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     story.append(Spacer(1, 6))
     
     # Create a more compact comprehensive table
-    comp_table_data = [['Page', 'AI Emails', 'RAG Emails', 'LLM Emails', 'AI Keywords', 'RAG Keywords', 'LLM Keywords', 'AI Payments', 'RAG Payments', 'LLM Payments']]
+    comp_table_data = [['Page', 'AI Emails', 'RAG Emails', 'LLM Emails', 'AI Keywords', 'RAG Keywords', 'LLM Keywords', 'AI Payments', 'RAG Payments', 'LLM Payments', 'AI PGP', 'RAG PGP', 'LLM PGP', 'AI Financial', 'RAG Financial', 'LLM Financial', 'AI Shipping', 'RAG Shipping', 'LLM Shipping', 'AI Usernames', 'RAG Usernames', 'LLM Usernames']]
     
     for result in all_results:
         comp_table_data.append([
-            result['page'][:15] + '...' if len(result['page']) > 15 else result['page'],
+            truncate_text_for_table(result['page'], 12),
             str(len(result['emails_ai'])),
             str(len(result['emails_rag'])),
             str(len(result['emails_llm'])),
@@ -350,21 +612,34 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
             str(len(result['keywords_llm'])),
             str(len(result['payments_ai'])),
             str(len(result['payments_rag'])),
-            str(len(result['payments_llm']))
+            str(len(result['payments_llm'])),
+            str(len(result['pgp_ai'])),
+            str(len(result['pgp_rag'])),
+            str(len(result['pgp_llm'])),
+            str(len(result['financial_ai'])),
+            str(len(result['financial_rag'])),
+            str(len(result['financial_llm'])),
+            str(len(result['shipping_ai'])),
+            str(len(result['shipping_rag'])),
+            str(len(result['shipping_llm'])),
+            str(len(result['usernames_ai'])),
+            str(len(result['usernames_rag'])),
+            str(len(result['usernames_llm']))
         ])
     
     # Use landscape orientation for this wide table
-    comp_table = Table(comp_table_data, colWidths=[1.2*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch])
+    comp_table = Table(comp_table_data, colWidths=calculate_dynamic_column_widths(22))
+    dynamic_font_size = get_dynamic_font_size(22)
     comp_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('FONTSIZE', (0, 0), (-1, 0), dynamic_font_size),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 6),
+        ('FONTSIZE', (0, 1), (-1, -1), max(dynamic_font_size - 1, 4)),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.lightgreen, colors.white]),
     ]))
@@ -396,7 +671,7 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
         ['Payments Found', str(total_stats['payments_ai']), str(total_stats['payments_rag']), str(total_stats['payments_llm'])]
     ]
     
-    perf_table = Table(perf_table_data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+    perf_table = Table(perf_table_data, colWidths=calculate_dynamic_column_widths(4))
     perf_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -420,9 +695,9 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     • Average LLM-only time: {avg_llm_time:.2f} seconds per page
     
     <b>Effectiveness Analysis:</b>
-    • AI Models found {total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai']} total items
-    • RAG+LLM found {total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag']} total items
-    • LLM-only found {total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm']} total items
+    • AI Models found {total_stats['emails_ai'] + total_stats['keywords_ai'] + total_stats['payments_ai'] + total_stats['pgp_ai'] + total_stats['financial_ai'] + total_stats['shipping_ai'] + total_stats['usernames_ai']} total items
+    • RAG+LLM found {total_stats['emails_rag'] + total_stats['keywords_rag'] + total_stats['payments_rag'] + total_stats['pgp_rag'] + total_stats['financial_rag'] + total_stats['shipping_rag'] + total_stats['usernames_rag']} total items
+    • LLM-only found {total_stats['emails_llm'] + total_stats['keywords_llm'] + total_stats['payments_llm'] + total_stats['pgp_llm'] + total_stats['financial_llm'] + total_stats['shipping_llm'] + total_stats['usernames_llm']} total items
     
     <b>Best Method:</b>
     • RAG+LLM shows the highest extraction rate
@@ -441,10 +716,10 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     <b>Extraction Methods Tested:</b>
     
     <b>1. AI Models (Baseline):</b>
-    • StarPII: Named entity recognition for emails
+    • StarPII: Named entity recognition for emails, PGP, financial data, shipping addresses, usernames
     • Zero-shot classification: Pre-trained model for risk keywords
     • spaCy: Named entity recognition for payment addresses
-    • Regex patterns: Standard pattern matching
+    • Regex patterns: Standard pattern matching for all data types
     
     <b>2. RAG+LLM (Enhanced):</b>
     • Knowledge base with dark web patterns
@@ -457,8 +732,17 @@ def create_comprehensive_pdf_report(all_results, total_stats, timestamp):
     • Direct text analysis without context
     • Baseline for RAG effectiveness measurement
     
+    <b>Data Types Extracted:</b>
+    • Emails: Contact information and communication addresses
+    • Keywords: Risk indicators and suspicious terms
+    • Payment Addresses: Cryptocurrency and payment information
+    • PGP Content: Encryption keys and signatures
+    • Financial Data: Credit cards, IBANs, SWIFT codes, bank accounts
+    • Shipping Addresses: Postal addresses, drop locations, coordinates
+    • Usernames: Aliases, handles, and user identifiers
+    
     <b>Evaluation Metrics:</b>
-    • Number of items found (emails, keywords, payments)
+    • Number of items found across all data types
     • Processing time per page
     • Accuracy improvement with different methods
     """
@@ -505,7 +789,8 @@ def comprehensive_test():
     test_locations = [
         "data/darkweb_test_pages/*.html",
         "data/generated_pages/*.html", 
-        "data/test_samples/*.html"
+        "data/test_samples/*.html",
+        "data/*.html"
     ]
     
     for location in test_locations:
@@ -524,6 +809,10 @@ def comprehensive_test():
         'emails_ai': 0, 'emails_rag': 0, 'emails_llm': 0,
         'keywords_ai': 0, 'keywords_rag': 0, 'keywords_llm': 0,
         'payments_ai': 0, 'payments_rag': 0, 'payments_llm': 0,
+        'pgp_ai': 0, 'pgp_rag': 0, 'pgp_llm': 0,
+        'financial_ai': 0, 'financial_rag': 0, 'financial_llm': 0,
+        'shipping_ai': 0, 'shipping_rag': 0, 'shipping_llm': 0,
+        'usernames_ai': 0, 'usernames_rag': 0, 'usernames_llm': 0,
         'total_ai_time': 0, 'total_rag_time': 0, 'total_llm_time': 0
     }
     
@@ -541,6 +830,18 @@ def comprehensive_test():
         total_stats['payments_ai'] += len(results['payments']['regex_spacy'])
         total_stats['payments_rag'] += len(results['payments']['rag_llm'])
         total_stats['payments_llm'] += len(results['payments']['llm_only'])
+        total_stats['pgp_ai'] += len(results['pgp']['regex_ai'])
+        total_stats['pgp_rag'] += len(results['pgp']['rag_llm'])
+        total_stats['pgp_llm'] += len(results['pgp']['llm_only'])
+        total_stats['financial_ai'] += len(results['financial']['regex_ai'])
+        total_stats['financial_rag'] += len(results['financial']['rag_llm'])
+        total_stats['financial_llm'] += len(results['financial']['llm_only'])
+        total_stats['shipping_ai'] += len(results['shipping']['regex_ai'])
+        total_stats['shipping_rag'] += len(results['shipping']['rag_llm'])
+        total_stats['shipping_llm'] += len(results['shipping']['llm_only'])
+        total_stats['usernames_ai'] += len(results['usernames']['regex_ai'])
+        total_stats['usernames_rag'] += len(results['usernames']['rag_llm'])
+        total_stats['usernames_llm'] += len(results['usernames']['llm_only'])
         total_stats['total_ai_time'] += results['times']['ai_regex']
         total_stats['total_rag_time'] += results['times']['rag_llm']
         total_stats['total_llm_time'] += results['times']['llm_only']
@@ -556,6 +857,18 @@ def comprehensive_test():
             'payments_ai': results['payments']['regex_spacy'],
             'payments_rag': results['payments']['rag_llm'],
             'payments_llm': results['payments']['llm_only'],
+            'pgp_ai': results['pgp']['regex_ai'],
+            'pgp_rag': results['pgp']['rag_llm'],
+            'pgp_llm': results['pgp']['llm_only'],
+            'financial_ai': results['financial']['regex_ai'],
+            'financial_rag': results['financial']['rag_llm'],
+            'financial_llm': results['financial']['llm_only'],
+            'shipping_ai': results['shipping']['regex_ai'],
+            'shipping_rag': results['shipping']['rag_llm'],
+            'shipping_llm': results['shipping']['llm_only'],
+            'usernames_ai': results['usernames']['regex_ai'],
+            'usernames_rag': results['usernames']['rag_llm'],
+            'usernames_llm': results['usernames']['llm_only'],
             'ai_time': results['times']['ai_regex'],
             'rag_time': results['times']['rag_llm'],
             'llm_time': results['times']['llm_only']
@@ -570,6 +883,10 @@ def comprehensive_test():
     print(f"   📧 Emails - AI+Regex: {total_stats['emails_ai']} | RAG+LLM: {total_stats['emails_rag']} | LLM-only: {total_stats['emails_llm']}")
     print(f"   🔍 Keywords - AI Zero-shot: {total_stats['keywords_ai']} | RAG+LLM: {total_stats['keywords_rag']} | LLM-only: {total_stats['keywords_llm']}")
     print(f"   💰 Payments - Regex+spaCy: {total_stats['payments_ai']} | RAG+LLM: {total_stats['payments_rag']} | LLM-only: {total_stats['payments_llm']}")
+    print(f"   🔐 PGP - Regex+AI: {total_stats['pgp_ai']} | RAG+LLM: {total_stats['pgp_rag']} | LLM-only: {total_stats['pgp_llm']}")
+    print(f"   💳 Financial - Regex+AI: {total_stats['financial_ai']} | RAG+LLM: {total_stats['financial_rag']} | LLM-only: {total_stats['financial_llm']}")
+    print(f"   📦 Shipping - Regex+AI: {total_stats['shipping_ai']} | RAG+LLM: {total_stats['shipping_rag']} | LLM-only: {total_stats['shipping_llm']}")
+    print(f"   👤 Usernames - Regex+AI: {total_stats['usernames_ai']} | RAG+LLM: {total_stats['usernames_rag']} | LLM-only: {total_stats['usernames_llm']}")
     print(f"   ⏱️  Average time - AI: {total_stats['total_ai_time']/len(test_files):.2f}s | RAG+LLM: {total_stats['total_rag_time']/len(test_files):.2f}s | LLM-only: {total_stats['total_llm_time']/len(test_files):.2f}s")
     
     # Calculate improvements
@@ -579,11 +896,23 @@ def comprehensive_test():
     keyword_llm_improvement = ((total_stats['keywords_llm'] - total_stats['keywords_ai']) / max(total_stats['keywords_ai'], 1)) * 100
     payment_rag_improvement = ((total_stats['payments_rag'] - total_stats['payments_ai']) / max(total_stats['payments_ai'], 1)) * 100
     payment_llm_improvement = ((total_stats['payments_llm'] - total_stats['payments_ai']) / max(total_stats['payments_ai'], 1)) * 100
+    pgp_rag_improvement = ((total_stats['pgp_rag'] - total_stats['pgp_ai']) / max(total_stats['pgp_ai'], 1)) * 100
+    pgp_llm_improvement = ((total_stats['pgp_llm'] - total_stats['pgp_ai']) / max(total_stats['pgp_ai'], 1)) * 100
+    financial_rag_improvement = ((total_stats['financial_rag'] - total_stats['financial_ai']) / max(total_stats['financial_ai'], 1)) * 100
+    financial_llm_improvement = ((total_stats['financial_llm'] - total_stats['financial_ai']) / max(total_stats['financial_ai'], 1)) * 100
+    shipping_rag_improvement = ((total_stats['shipping_rag'] - total_stats['shipping_ai']) / max(total_stats['shipping_ai'], 1)) * 100
+    shipping_llm_improvement = ((total_stats['shipping_llm'] - total_stats['shipping_ai']) / max(total_stats['shipping_ai'], 1)) * 100
+    usernames_rag_improvement = ((total_stats['usernames_rag'] - total_stats['usernames_ai']) / max(total_stats['usernames_ai'], 1)) * 100
+    usernames_llm_improvement = ((total_stats['usernames_llm'] - total_stats['usernames_ai']) / max(total_stats['usernames_ai'], 1)) * 100
     
     print(f"\n🎯 Performance Improvements:")
     print(f"   📧 Emails: RAG+LLM {email_rag_improvement:+.1f}% vs AI, LLM-only {email_llm_improvement:+.1f}% vs AI")
     print(f"   🔍 Keywords: RAG+LLM {keyword_rag_improvement:+.1f}% vs AI, LLM-only {keyword_llm_improvement:+.1f}% vs AI")
     print(f"   💰 Payments: RAG+LLM {payment_rag_improvement:+.1f}% vs AI, LLM-only {payment_llm_improvement:+.1f}% vs AI")
+    print(f"   🔐 PGP: RAG+LLM {pgp_rag_improvement:+.1f}% vs AI, LLM-only {pgp_llm_improvement:+.1f}% vs AI")
+    print(f"   💳 Financial: RAG+LLM {financial_rag_improvement:+.1f}% vs AI, LLM-only {financial_llm_improvement:+.1f}% vs AI")
+    print(f"   📦 Shipping: RAG+LLM {shipping_rag_improvement:+.1f}% vs AI, LLM-only {shipping_llm_improvement:+.1f}% vs AI")
+    print(f"   👤 Usernames: RAG+LLM {usernames_rag_improvement:+.1f}% vs AI, LLM-only {usernames_llm_improvement:+.1f}% vs AI")
     
     # Save detailed results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

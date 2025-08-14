@@ -4,7 +4,7 @@ from datetime import datetime
 
 def generate_json_report(
     filename, hash_value, btc_list, email_list, keywords, pgp_content, financial_data, shipping_addresses, usernames, score,
-    level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None
+    level, case_id, investigator, notes, llm_summary="", suspicious_prompts=None, document_ads_result=None, virus_detection_result=None
 ):
     os.makedirs("reports", exist_ok=True)
     report_filename = f"report_{filename.replace('.html', '')}.json"
@@ -26,7 +26,9 @@ def generate_json_report(
         "usernames": usernames or [],
         "risk_score": score,
         "severity": level,
-        "llm_summary": llm_summary or "None"
+        "llm_summary": llm_summary or "None",
+        "document_advertisements": document_ads_result or {},
+        "virus_detection_results": virus_detection_result or {}
     }
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, indent=2)

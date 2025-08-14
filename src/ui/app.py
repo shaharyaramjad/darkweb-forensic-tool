@@ -12,6 +12,8 @@ from src.extract.pgp_extractor import extract_pgp_from_html
 from src.extract.financial_data_extractor import extract_financial_data_from_html
 from src.extract.shipping_address_extractor import extract_shipping_addresses_from_html
 from src.extract.username_extractor import extract_usernames_from_html
+from src.extract.document_advertisement_detector import extract_document_advertisements_from_html
+from src.utils.virus_detection_api import process_document_advertisements_for_virus_detection
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -60,6 +62,11 @@ with tab1:
     USE_AI = st.checkbox("Use AI Model (StarPII, Zero-shot, etc.)", value=True)
     TRANSLATE = st.checkbox("Translate non-English content", value=True)
     USE_SQL = st.checkbox("Insert results into SQL database", value=True)
+    ENABLE_VIRUS_LIVE_CHECKS = st.checkbox(
+        "🛡️ Enable Live Virus Checks (VirusTotal/URLVoid)",
+        value=False,
+        help="When enabled and API keys are configured in .env, suspicious URLs are checked live. When disabled, the tool still prepares an API-ready payload and a manual investigation report."
+    )
     ENABLE_SECURITY_SCAN = st.checkbox("🔒 Enable Security Scanning", value=True, help="Scan for malicious content before processing")
 
     # ========== Process Button ==========
@@ -114,6 +121,15 @@ with tab1:
                 financial_data = extract_financial_data_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
                 shipping_addresses = extract_shipping_addresses_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
                 usernames = extract_usernames_from_html(temp_path, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI, translate=TRANSLATE)
+                
+                # Document Advertisement Detection
+                document_ads_result = extract_document_advertisements_from_html(
+                    temp_path,
+                    use_llm=USE_LLM,
+                    use_rag=USE_RAG,
+                    use_ai=USE_AI,
+                    translate=TRANSLATE
+                )
 
                 # LLM Summary
                 llm_summary = "LLM disabled."
@@ -128,14 +144,25 @@ with tab1:
                 # Risk Score
                 score = calculate_risk_score(payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames)
                 label = "Low" if score < 50 else "Medium" if score < 100 else "High"
+                
+                # Process document advertisements for virus detection
+                virus_detection_result = None
+                if document_ads_result['total_found'] > 0:
+                    try:
+                        virus_detection_result = process_document_advertisements_for_virus_detection(
+                            document_ads_result,
+                            enable_live_checks=ENABLE_VIRUS_LIVE_CHECKS,
+                        )
+                    except Exception as e:
+                        st.warning(f"⚠️ Virus detection processing failed: {e}")
 
                 # Timestamp + Reports
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 base_name = f"{case_id}_{os.path.splitext(file_name)[0]}_{timestamp}"
 
                 # Generate reports and store paths
-                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary)
-                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary)
+                pdf_path = generate_pdf_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary, document_ads_result=document_ads_result, virus_detection_result=virus_detection_result)
+                json_path = generate_json_report(base_name, file_hash, payments, emails, keywords, pgp_content, financial_data, shipping_addresses, usernames, score, label, case_id, investigator, notes, llm_summary, document_ads_result=document_ads_result, virus_detection_result=virus_detection_result)
 
                 generated_reports.append({
                     'file_name': file_name,
@@ -207,10 +234,52 @@ with tab1:
                         else:
                             st.write("- None found")
                     
+                    # Document Advertisement Detection Results
+                    st.write("**📄 Document Advertisements:**")
+                    if document_ads_result['total_found'] > 0:
+                        st.warning(f"⚠️ Found {document_ads_result['total_found']} suspicious items!")
+                        
+                        # Display document advertisements
+                        if document_ads_result['document_advertisements']:
+                            st.write("**Document Ads:**")
+                            for ad in document_ads_result['document_advertisements']:
+                                risk_color = "🔴" if ad['suspicious_level'] == 'high' else "🟡"
+                                st.write(f"{risk_color} {ad['type']}: {ad['content']}")
+                        
+                        # Display suspicious URLs
+                        if document_ads_result['suspicious_urls']:
+                            st.write("**Suspicious URLs:**")
+                            for url_data in document_ads_result['suspicious_urls']:
+                                risk_color = "🔴" if url_data['risk_level'] == 'high' else "🟡"
+                                st.write(f"{risk_color} {url_data['url']} ({url_data['suspicious_reason']})")
+                        
+                        # Display virus detection results
+                        if virus_detection_result and virus_detection_result['success']:
+                            st.write("**🛡️ Virus Detection Results:**")
+                            api_results = virus_detection_result['api_results']
+                            st.write(f"• URLs checked: {api_results['total_checked']}")
+                            st.write(f"• Malicious URLs: {api_results['malicious_found']}")
+                            st.write(f"• High risk URLs: {len(api_results['high_risk_urls'])}")
+                            
+                            # Display recommendations
+                            if virus_detection_result['report']['recommendations']:
+                                st.write("**💡 Recommendations:**")
+                                for rec in virus_detection_result['report']['recommendations']:
+                                    st.write(f"• {rec}")
+                    else:
+                        st.write("- None found")
+                    
                     st.write(f"**🔥 Risk Score:** {score} ({label})")
 
                 st.success(f"✅ {file_name} processed. PDF and JSON saved as: {base_name}")
                 if USE_SQL:
+                    # Prepare document advertisement data for database
+                    document_ads_data = {
+                        'document_advertisements': document_ads_result['document_advertisements'],
+                        'suspicious_urls': document_ads_result['suspicious_urls'],
+                        'total_found': document_ads_result['total_found']
+                    }
+                    
                     insert_into_db(
                         case_id,
                         investigator,
@@ -225,7 +294,8 @@ with tab1:
                         score,
                         label,
                         file_hash,
-                        llm_summary
+                        llm_summary,
+                        document_ads_data  # Add document advertisement data
                     )
                     st.info("✅ Data inserted into MySQL database.")
                 else:

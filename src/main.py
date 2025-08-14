@@ -12,6 +12,7 @@ from src.extract.pgp_extractor import extract_pgp_from_html
 from src.extract.financial_data_extractor import extract_financial_data_from_html
 from src.extract.shipping_address_extractor import extract_shipping_addresses_from_html
 from src.extract.username_extractor import extract_usernames_from_html
+from src.extract.document_advertisement_detector import extract_document_advertisements_from_html
 from src.utils.hash_util import calculate_sha256
 from src.risk.risk_score import calculate_risk_score
 from src.report.pdf_report import generate_pdf_report
@@ -79,6 +80,25 @@ for filename in os.listdir(directory):
         emails_found = extract_emails_from_html(filepath, use_ai=USE_AI_MODEL, use_llm=USE_LLM, translate=TRANSLATE, use_rag=USE_RAG)
         keywords_found = detect_risk_keywords_from_html(filepath,use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL,translate=TRANSLATE)
         pgp_content = extract_pgp_from_html(filepath, use_llm=USE_LLM, use_rag=USE_RAG, use_ai=USE_AI_MODEL, translate=TRANSLATE)
+        
+        # Extract document advertisements
+        document_ads_result = extract_document_advertisements_from_html(
+            filepath, 
+            use_llm=USE_LLM,
+            use_rag=USE_RAG,
+            use_ai=USE_AI_MODEL, 
+            translate=TRANSLATE
+        )
+        
+        # Process document advertisements for virus detection
+        virus_detection_result = None
+        if document_ads_result['total_found'] > 0:
+            try:
+                from src.utils.virus_detection_api import process_document_advertisements_for_virus_detection
+                virus_detection_result = process_document_advertisements_for_virus_detection(document_ads_result)
+            except Exception as e:
+                print(f"⚠️ Virus detection processing failed: {e}")
+        
         file_hash = calculate_sha256(filepath)
 
         # Collect suspicious prompts from all extractors
@@ -158,6 +178,32 @@ for filename in os.listdir(directory):
         else:
             print("✅ No usernames detected.")
 
+        # Display document advertisement results
+        if document_ads_result['total_found'] > 0:
+            print(f"📄 Document Advertisements Found: {document_ads_result['total_found']}")
+            if document_ads_result.get('document_advertisements'):
+                for ad in document_ads_result['document_advertisements']:
+                    risk_icon = "🔴" if ad['suspicious_level'] == 'high' else "🟡"
+                    print(f"{risk_icon} {ad['type']}: {ad['content']}")
+            
+            if document_ads_result.get('suspicious_urls'):
+                print("🔗 Suspicious URLs:")
+                for url_data in document_ads_result['suspicious_urls']:
+                    risk_icon = "🔴" if url_data['risk_level'] == 'high' else "🟡"
+                    print(f"{risk_icon} {url_data['url']} ({url_data['suspicious_reason']})")
+        else:
+            print("✅ No document advertisements detected.")
+        
+        # Display virus detection results
+        if virus_detection_result and virus_detection_result.get('success'):
+            print("🦠 Virus Detection Results:")
+            api_results = virus_detection_result.get('api_results', {})
+            print(f"  URLs Checked: {api_results.get('total_checked', 0)}")
+            print(f"  Malicious URLs: {api_results.get('malicious_found', 0)}")
+            print(f"  High Risk URLs: {len(api_results.get('high_risk_urls', []))}")
+        else:
+            print("✅ No virus detection results available.")
+
         print(f"🧠 LLM Summary: {llm_summary}")
 
         # 🔥 Risk Score
@@ -191,7 +237,9 @@ for filename in os.listdir(directory):
             investigator,
             notes,
             llm_summary,
-            suspicious_prompts
+            suspicious_prompts,
+            document_ads_result,
+            virus_detection_result
         )
 
         generate_json_report(
@@ -210,7 +258,9 @@ for filename in os.listdir(directory):
             investigator,
             notes,
             llm_summary,
-            suspicious_prompts
+            suspicious_prompts,
+            document_ads_result,
+            virus_detection_result
         )
 
         if USE_SQL:
