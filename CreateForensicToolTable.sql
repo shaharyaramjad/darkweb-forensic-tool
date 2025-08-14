@@ -87,3 +87,15 @@ CREATE TABLE suspicious_urls (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
+
+CREATE TABLE actual_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_id INT,
+    link_type VARCHAR(100),
+    url TEXT,
+    link_text TEXT,
+    extraction_method VARCHAR(50),
+    suspicious_level VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (case_id) REFERENCES case_metadata(id)
+);

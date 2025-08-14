@@ -101,6 +101,18 @@ def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keyw
                 INSERT INTO suspicious_urls (case_id, url, domain, suspicious_reason, risk_level)
                 VALUES (%s, %s, %s, %s, %s)
             """, (case_db_id, url, domain, suspicious_reason, risk_level))
+        
+        # Insert actual links
+        for link_data in document_ads_data.get('actual_links', []):
+            link_type = link_data.get('type', 'unknown')
+            url = link_data.get('url', '')
+            link_text = link_data.get('link_text', '')
+            extraction_method = link_data.get('method', 'unknown')
+            suspicious_level = link_data.get('suspicious_level', 'medium')
+            cursor.execute("""
+                INSERT INTO actual_links (case_id, link_type, url, link_text, extraction_method, suspicious_level)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (case_db_id, link_type, url, link_text, extraction_method, suspicious_level))
 
     conn.commit()
     cursor.close()

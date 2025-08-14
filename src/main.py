@@ -98,6 +98,16 @@ for filename in os.listdir(directory):
                 virus_detection_result = process_document_advertisements_for_virus_detection(document_ads_result)
             except Exception as e:
                 print(f"⚠️ Virus detection processing failed: {e}")
+                # Create a simple fallback structure for reports
+                virus_detection_result = {
+                    'success': False,
+                    'api_results': {
+                        'total_checked': len(document_ads_result.get('suspicious_urls', [])),
+                        'malicious_found': 0,
+                        'high_risk_urls': []
+                    },
+                    'note': 'Virus detection processing failed, using simplified data structure'
+                }
         
         file_hash = calculate_sha256(filepath)
 
@@ -278,7 +288,8 @@ for filename in os.listdir(directory):
                 score,
                 severity,
                 file_hash,
-                llm_summary
+                llm_summary,
+                document_ads_result
             )
             print("✅ Data inserted into MySQL database successfully.")
         else:
