@@ -277,6 +277,7 @@ with tab1:
                     document_ads_data = {
                         'document_advertisements': document_ads_result['document_advertisements'],
                         'suspicious_urls': document_ads_result['suspicious_urls'],
+                        'actual_links': document_ads_result.get('actual_links', []),
                         'total_found': document_ads_result['total_found']
                     }
                     
@@ -351,6 +352,9 @@ with tab1:
 with tab2:
     st.subheader("🧑‍💻 SQL Query Interface")
     st.info("Run SQL queries to analyze the forensic data stored in the database.")
+    
+    # Add helpful info about actual links
+    st.success("💡 **Tip**: Most links are stored in the `actual_links` table, not `suspicious_urls`. Try 'View all actual links' or 'Count links by type' to see the extracted links!")
 
     if st.button("🔗 Test Database Connection"):
         try:
@@ -389,7 +393,7 @@ DB_NAME=your_database_name
     else:
         default_query = ""
 
-    query = st.text_area("Write your SQL query here:", height=200, placeholder="SELECT * FROM case_metadata;", value=default_query, key="query_input")
+    query = st.text_area("Write your SQL query here:", height=200, placeholder="SELECT * FROM actual_links LIMIT 10;", value=default_query, key="query_input")
 
     col1, col2 = st.columns([1, 4])
     with col1:
@@ -402,6 +406,25 @@ DB_NAME=your_database_name
         st.subheader("📋 Sample Queries")
         sample_queries = {
             "View all cases": "SELECT * FROM case_metadata;",
+            "View all actual links": "SELECT * FROM actual_links;",
+            "View recent actual links": """
+SELECT 
+    al.url,
+    al.link_type,
+    al.suspicious_level,
+    c.case_id,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+ORDER BY c.created_at DESC
+LIMIT 20;""",
+            "Count links by type": """
+SELECT 
+    al.link_type,
+    COUNT(*) as count
+FROM actual_links al
+GROUP BY al.link_type
+ORDER BY count DESC;""",
             "View all emails with case info": """
 SELECT 
     e.id,
@@ -476,6 +499,46 @@ SELECT
     c.created_at
 FROM usernames u
 JOIN case_metadata c ON u.case_id = c.id;""",
+            "View all actual links with case info": """
+SELECT 
+    al.id,
+    al.link_type,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id;""",
+            "View all document advertisements with case info": """
+SELECT 
+    da.id,
+    da.ad_type,
+    da.content,
+    da.suspicious_level,
+    da.method,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM document_advertisements da
+JOIN case_metadata c ON da.case_id = c.id;""",
+            "View all suspicious URLs with case info": """
+SELECT 
+    su.id,
+    su.url,
+    su.domain,
+    su.suspicious_reason,
+    su.risk_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM suspicious_urls su
+JOIN case_metadata c ON su.case_id = c.id;""",
             "View drop locations only": """
 SELECT 
     s.id,
@@ -542,6 +605,119 @@ SELECT
 FROM usernames u
 JOIN case_metadata c ON u.case_id = c.id
 WHERE u.username_type = 'professional_style';""",
+            "View hyperlink links only": """
+SELECT 
+    al.id,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'hyperlink';""",
+            "View JavaScript links only": """
+SELECT 
+    al.id,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'javascript';""",
+            "View event handler links only": """
+SELECT 
+    al.id,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'event_handler';""",
+            "View high suspicious level links": """
+SELECT 
+    al.id,
+    al.link_type,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name,
+    c.severity,
+    c.created_at
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.suspicious_level = 'high';""",
+            "Count links by type": """
+SELECT 
+    al.link_type,
+    COUNT(*) as count,
+    c.case_id,
+    c.investigator_name
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+GROUP BY al.link_type, c.case_id, c.investigator_name
+ORDER BY count DESC;""",
+            "Find high suspicious level links": """
+SELECT 
+    al.url,
+    al.link_type,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.suspicious_level = 'high'
+ORDER BY c.created_at DESC;""",
+            "Find JavaScript links": """
+SELECT 
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'javascript'
+ORDER BY c.created_at DESC;""",
+            "Find event handler links": """
+SELECT 
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'event_handler'
+ORDER BY c.created_at DESC;""",
+            "Find hyperlink links": """
+SELECT 
+    al.url,
+    al.link_text,
+    al.suspicious_level,
+    c.case_id,
+    c.investigator_name
+FROM actual_links al
+JOIN case_metadata c ON al.case_id = c.id
+WHERE al.link_type = 'hyperlink'
+ORDER BY c.created_at DESC;""",
             "High risk cases (score > 100)": "SELECT * FROM case_metadata WHERE score > 100;",
             "Recent cases (last 10)": "SELECT * FROM case_metadata ORDER BY created_at DESC LIMIT 10;",
             "Cases by severity level": "SELECT severity, COUNT(*) as count FROM case_metadata GROUP BY severity;",
@@ -574,7 +750,23 @@ SELECT
     s.content,
     u.id AS username_id,
     u.username_type,
-    u.content as username
+    u.content as username,
+    al.id AS actual_link_id,
+    al.link_type,
+    al.url,
+    al.link_text,
+    al.extraction_method,
+    al.suspicious_level,
+    da.id AS document_ad_id,
+    da.ad_type,
+    da.content as ad_content,
+    da.suspicious_level as ad_suspicious_level,
+    da.method,
+    su.id AS suspicious_url_id,
+    su.url as suspicious_url,
+    su.domain,
+    su.suspicious_reason,
+    su.risk_level
 FROM case_metadata c
 LEFT JOIN extracted_emails e ON c.id = e.case_id
 LEFT JOIN extracted_payment_addresses p ON c.id = p.case_id
@@ -583,6 +775,9 @@ LEFT JOIN pgp_content pg ON c.id = pg.case_id
 LEFT JOIN financial_data f ON c.id = f.case_id
 LEFT JOIN shipping_addresses s ON c.id = s.case_id
 LEFT JOIN usernames u ON c.id = u.case_id
+LEFT JOIN actual_links al ON c.id = al.case_id
+LEFT JOIN document_advertisements da ON c.id = da.case_id
+LEFT JOIN suspicious_urls su ON c.id = su.case_id
 ORDER BY c.id;"""
         }
 
@@ -590,24 +785,24 @@ ORDER BY c.id;"""
 
         with col1:
             st.write("**🔍 Basic Queries**")
-            basic_queries = ["View all cases", "High risk cases (score > 100)", "Recent cases (last 10)", "Cases by severity level"]
+            basic_queries = ["View all cases", "View all actual links", "View recent actual links", "High risk cases (score > 100)", "Recent cases (last 10)", "Cases by severity level"]
             for title in basic_queries:
-                if st.button(f"📝 {title}", key=f"sample_{title}"):
+                if st.button(f"📝 {title}", key=f"basic_{title}"):
                     st.session_state.selected_query = sample_queries[title]
                     st.rerun()
 
         with col2:
             st.write("**📊 Detailed Analysis**")
-            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info", "View all PGP content with case info", "View all financial data with case info", "View all shipping addresses with case info", "View all usernames with case info"]
+            detailed_queries = ["View all emails with case info", "View all payment addresses with case info", "View all risky keywords with case info", "View all PGP content with case info", "View all financial data with case info", "View all shipping addresses with case info", "View all usernames with case info", "View all actual links with case info", "View all document advertisements with case info", "View all suspicious URLs with case info"]
             for title in detailed_queries:
-                if st.button(f"📝 {title}", key=f"sample_{title}"):
+                if st.button(f"📝 {title}", key=f"detailed_{title}"):
                     st.session_state.selected_query = sample_queries[title]
                     st.rerun()
 
         st.write("**🔬 Advanced Queries**")
-        advanced_queries = ["Full details for specific case", "Complete forensic analysis (all data)", "View drop locations only", "View coordinates only", "View postal addresses only", "View dark web usernames only", "View forum usernames only", "View professional aliases only"]
+        advanced_queries = ["Full details for specific case", "Complete forensic analysis (all data)", "View drop locations only", "View coordinates only", "View postal addresses only", "View dark web usernames only", "View forum usernames only", "View professional aliases only", "Find high suspicious level links", "Find JavaScript links", "Find event handler links", "Find hyperlink links", "Count links by type"]
         for title in advanced_queries:
-            if st.button(f"📝 {title}", key=f"sample_{title}"):
+            if st.button(f"📝 {title}", key=f"advanced_{title}"):
                 st.session_state.selected_query = sample_queries[title]
                 st.rerun()
 

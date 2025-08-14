@@ -13,7 +13,6 @@ from src.extract.utils_visible_text import detect_suspicious_prompts
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 import urllib.parse
-import requests
 from urllib.parse import urlparse
 
 # Load environment variables
@@ -303,7 +302,7 @@ def extract_document_ads_with_llm_only(text):
         return {"method": "llm_only", "results": [], "success": False, "error": str(e)}
 
 def extract_urls_from_text(text):
-    """Extract URLs from text for virus detection with enhanced malicious file detection."""
+    """Extract URLs from text for analysis."""
     try:
         url_pattern = r'https?://[^\s<>"\']+'
         urls = re.findall(url_pattern, text)
@@ -358,125 +357,15 @@ def extract_urls_from_text(text):
                 suspicious_urls.append({
                     'url': url,
                     'domain': parsed_url.netloc,
-                    'path': path,
-                    'query': query,
                     'suspicious_reason': ' + '.join(suspicious_reason),
                     'risk_level': risk_level,
-                    'file_extension': next((ext for ext in high_risk_extensions + medium_risk_extensions if ext in path), None),
-                    'malicious_keywords_found': [kw for kw in malicious_keywords if kw in path or kw in query]
+                    'file_extension': next((ext for ext in high_risk_extensions + medium_risk_extensions if ext in path), None)
                 })
         
         return suspicious_urls
     except Exception as e:
         print(f"Error extracting URLs: {e}")
         return []
-
-def prepare_for_virus_detection(document_ads, suspicious_urls):
-    """Prepare data for virus detection API with enhanced malicious file detection."""
-    try:
-        virus_detection_data = {
-            'document_advertisements': [],
-            'suspicious_urls': [],
-            'high_risk_items': [],
-            'malicious_file_downloads': [],
-            'executable_files': [],
-            'api_ready': True,
-            'summary': {
-                'total_document_ads': 0,
-                'total_suspicious_urls': 0,
-                'high_risk_urls': 0,
-                'executable_files': 0,
-                'malicious_keywords_found': 0
-            }
-        }
-        
-        # Process document advertisements
-        for ad in document_ads:
-            virus_detection_data['document_advertisements'].append({
-                'content': ad['content'],
-                'type': ad['type'],
-                'suspicious_level': ad['suspicious_level'],
-                'method': ad['method']
-            })
-            virus_detection_data['summary']['total_document_ads'] += 1
-            
-            # Check if it's a malicious file download advertisement
-            if 'malicious_file_downloads' in ad['type'] or 'malware_indicators' in ad['type']:
-                virus_detection_data['malicious_file_downloads'].append({
-                    'content': ad['content'],
-                    'type': ad['type'],
-                    'suspicious_level': ad['suspicious_level'],
-                    'method': ad['method'],
-                    'priority': 'critical'
-                })
-            
-            if ad['suspicious_level'] == 'high':
-                virus_detection_data['high_risk_items'].append({
-                    'type': 'document_advertisement',
-                    'content': ad['content'],
-                    'risk_level': 'high',
-                    'priority': 'critical'
-                })
-        
-        # Process suspicious URLs
-        for url_data in suspicious_urls:
-            virus_detection_data['suspicious_urls'].append({
-                'url': url_data['url'],
-                'domain': url_data['domain'],
-                'path': url_data.get('path', ''),
-                'query': url_data.get('query', ''),
-                'suspicious_reason': url_data['suspicious_reason'],
-                'risk_level': url_data['risk_level'],
-                'file_extension': url_data.get('file_extension'),
-                'malicious_keywords_found': url_data.get('malicious_keywords_found', [])
-            })
-            virus_detection_data['summary']['total_suspicious_urls'] += 1
-            
-            # Track executable files separately
-            if url_data.get('file_extension') in ['.exe', '.msi', '.bat', '.cmd', '.ps1', '.vbs', '.js', '.jar', '.apk', '.dmg', '.pkg', '.scr', '.com']:
-                virus_detection_data['executable_files'].append({
-                    'url': url_data['url'],
-                    'domain': url_data['domain'],
-                    'file_extension': url_data['file_extension'],
-                    'risk_level': 'critical',
-                    'suspicious_reason': url_data['suspicious_reason']
-                })
-                virus_detection_data['summary']['executable_files'] += 1
-            
-            if url_data['risk_level'] == 'high':
-                virus_detection_data['summary']['high_risk_urls'] += 1
-                virus_detection_data['high_risk_items'].append({
-                    'type': 'suspicious_url',
-                    'url': url_data['url'],
-                    'risk_level': 'high',
-                    'file_extension': url_data.get('file_extension'),
-                    'priority': 'critical'
-                })
-            
-            # Count malicious keywords
-            if url_data.get('malicious_keywords_found'):
-                virus_detection_data['summary']['malicious_keywords_found'] += len(url_data['malicious_keywords_found'])
-        
-        return virus_detection_data
-        
-    except Exception as e:
-        print(f"Error preparing virus detection data: {e}")
-        return {
-            'document_advertisements': [],
-            'suspicious_urls': [],
-            'high_risk_items': [],
-            'malicious_file_downloads': [],
-            'executable_files': [],
-            'api_ready': False,
-            'error': str(e),
-            'summary': {
-                'total_document_ads': 0,
-                'total_suspicious_urls': 0,
-                'high_risk_urls': 0,
-                'executable_files': 0,
-                'malicious_keywords_found': 0
-            }
-        }
 
 def deduplicate_results(all_results):
     """Remove duplicate document advertisements and organize by method."""
@@ -519,157 +408,143 @@ def clean_document_ads(document_ads):
     
     return cleaned_data
 
-def generate_investigation_report(document_ads, suspicious_urls, virus_detection_data):
-    """Generate a detailed report for manual investigation of malicious files."""
+def extract_actual_links_from_html(html_content):
+    """Extract actual links and URLs from HTML content exactly as they appear."""
     try:
-        report = {
-            'timestamp': time.time(),
-            'summary': {
-                'total_document_advertisements': len(document_ads),
-                'total_suspicious_urls': len(suspicious_urls),
-                'high_risk_items': len(virus_detection_data.get('high_risk_items', [])),
-                'executable_files': len(virus_detection_data.get('executable_files', [])),
-                'malicious_file_downloads': len(virus_detection_data.get('malicious_file_downloads', [])),
-                'critical_threats': 0,
-                'requires_immediate_action': False
-            },
-            'critical_findings': [],
-            'executable_files_detected': [],
-            'malicious_file_advertisements': [],
-            'suspicious_urls_for_investigation': [],
-            'recommendations': [],
-            'manual_investigation_required': []
-        }
+        soup = BeautifulSoup(html_content, 'html.parser')
+        extracted_links = []
         
-        # Analyze executable files (highest priority)
-        for exe_file in virus_detection_data.get('executable_files', []):
-            report['executable_files_detected'].append({
-                'url': exe_file['url'],
-                'domain': exe_file['domain'],
-                'file_extension': exe_file['file_extension'],
-                'suspicious_reason': exe_file['suspicious_reason'],
-                'priority': 'CRITICAL',
-                'action_required': 'IMMEDIATE BLOCKING REQUIRED',
-                'investigation_notes': f"Executable file detected: {exe_file['file_extension']} from {exe_file['domain']}"
-            })
-            report['summary']['critical_threats'] += 1
-            report['summary']['requires_immediate_action'] = True
-        
-        # Analyze malicious file download advertisements
-        for mal_ad in virus_detection_data.get('malicious_file_downloads', []):
-            report['malicious_file_advertisements'].append({
-                'content': mal_ad['content'],
-                'type': mal_ad['type'],
-                'suspicious_level': mal_ad['suspicious_level'],
-                'method': mal_ad['method'],
-                'priority': 'HIGH',
-                'action_required': 'INVESTIGATE FOR MALWARE',
-                'investigation_notes': f"Malicious file advertisement detected via {mal_ad['method']}"
-            })
-            report['summary']['critical_threats'] += 1
-        
-        # Analyze suspicious URLs for manual investigation
-        for url_data in suspicious_urls:
-            if url_data['risk_level'] == 'high':
-                report['suspicious_urls_for_investigation'].append({
-                    'url': url_data['url'],
-                    'domain': url_data['domain'],
-                    'suspicious_reason': url_data['suspicious_reason'],
-                    'file_extension': url_data.get('file_extension'),
-                    'malicious_keywords': url_data.get('malicious_keywords_found', []),
-                    'priority': 'HIGH',
-                    'action_required': 'VIRUS SCAN REQUIRED',
-                    'investigation_notes': f"High-risk URL with {url_data['suspicious_reason']}"
-                })
-                report['summary']['critical_threats'] += 1
-            elif url_data['risk_level'] == 'medium':
-                report['suspicious_urls_for_investigation'].append({
-                    'url': url_data['url'],
-                    'domain': url_data['domain'],
-                    'suspicious_reason': url_data['suspicious_reason'],
-                    'file_extension': url_data.get('file_extension'),
-                    'malicious_keywords': url_data.get('malicious_keywords_found', []),
-                    'priority': 'MEDIUM',
-                    'action_required': 'MONITOR CLOSELY',
-                    'investigation_notes': f"Medium-risk URL with {url_data['suspicious_reason']}"
+        # Extract all <a> tags with href attributes
+        for link in soup.find_all('a', href=True):
+            href = link.get('href', '').strip()
+            link_text = link.get_text(strip=True)
+            
+            if href and href.startswith(('http://', 'https://')):
+                extracted_links.append({
+                    'type': 'hyperlink',
+                    'url': href,
+                    'link_text': link_text,
+                    'method': 'html_parser',
+                    'suspicious_level': 'medium'
                 })
         
-        # Generate critical findings
-        if report['summary']['executable_files'] > 0:
-            report['critical_findings'].append({
-                'type': 'EXECUTABLE_FILES_DETECTED',
-                'severity': 'CRITICAL',
-                'description': f"Found {report['summary']['executable_files']} executable files that could install malware",
-                'immediate_action': 'BLOCK ALL EXECUTABLE DOWNLOADS IMMEDIATELY'
-            })
+        # Extract all URLs from text content (including those not in <a> tags)
+        url_pattern = r'https?://[^\s<>"\']+'
+        text_urls = re.findall(url_pattern, html_content)
         
-        if report['summary']['malicious_file_downloads'] > 0:
-            report['critical_findings'].append({
-                'type': 'MALICIOUS_FILE_ADVERTISEMENTS',
-                'severity': 'HIGH',
-                'description': f"Found {report['summary']['malicious_file_downloads']} advertisements for malicious file downloads",
-                'immediate_action': 'INVESTIGATE ALL MALICIOUS FILE ADVERTISEMENTS'
-            })
+        for url in text_urls:
+            # Check if this URL wasn't already extracted as a hyperlink
+            if not any(link['url'] == url for link in extracted_links):
+                extracted_links.append({
+                    'type': 'text_url',
+                    'url': url,
+                    'link_text': url,
+                    'method': 'regex',
+                    'suspicious_level': 'medium'
+                })
         
-        if report['summary']['high_risk_items'] > 0:
-            report['critical_findings'].append({
-                'type': 'HIGH_RISK_ITEMS',
-                'severity': 'HIGH',
-                'description': f"Found {report['summary']['high_risk_items']} high-risk items requiring immediate attention",
-                'immediate_action': 'PRIORITIZE INVESTIGATION OF HIGH-RISK ITEMS'
-            })
+        # Extract links from src attributes (images, scripts, etc.)
+        for tag in soup.find_all(['img', 'script', 'iframe', 'embed'], src=True):
+            src = tag.get('src', '').strip()
+            if src and src.startswith(('http://', 'https://')):
+                extracted_links.append({
+                    'type': 'resource_link',
+                    'url': src,
+                    'link_text': f"{tag.name} source",
+                    'method': 'html_parser',
+                    'suspicious_level': 'medium'
+                })
         
-        # Generate recommendations
-        if report['summary']['requires_immediate_action']:
-            report['recommendations'].append('🚨 IMMEDIATE ACTION REQUIRED: Block all executable file downloads')
-            report['recommendations'].append('🔍 MANUAL INVESTIGATION: Review all suspicious URLs for malware')
-            report['recommendations'].append('📋 DOCUMENTATION: Document all findings for forensic analysis')
-        else:
-            report['recommendations'].append('✅ No critical threats detected, continue monitoring')
+        # Extract links from data attributes
+        for tag in soup.find_all(attrs={'data-url': True}):
+            data_url = tag.get('data-url', '').strip()
+            if data_url and data_url.startswith(('http://', 'https://')):
+                extracted_links.append({
+                    'type': 'data_attribute',
+                    'url': data_url,
+                    'link_text': f"data-url from {tag.name}",
+                    'method': 'html_parser',
+                    'suspicious_level': 'medium'
+                })
         
-        # Prepare manual investigation checklist
-        report['manual_investigation_required'] = [
-            {
-                'task': 'Review all executable files',
-                'priority': 'CRITICAL',
-                'description': 'Manually verify each executable file URL for malware'
-            },
-            {
-                'task': 'Investigate malicious file advertisements',
-                'priority': 'HIGH',
-                'description': 'Analyze content of malicious file download advertisements'
-            },
-            {
-                'task': 'Virus scan suspicious URLs',
-                'priority': 'HIGH',
-                'description': 'Use virus detection APIs to scan suspicious URLs'
-            },
-            {
-                'task': 'Document findings',
-                'priority': 'MEDIUM',
-                'description': 'Create detailed report of all findings for legal/forensic purposes'
-            }
-        ]
+        # Extract links from onclick and other event handlers
+        for tag in soup.find_all(attrs={'onclick': True}):
+            onclick = tag.get('onclick', '')
+            urls_in_onclick = re.findall(url_pattern, onclick)
+            for url in urls_in_onclick:
+                extracted_links.append({
+                    'type': 'event_handler',
+                    'url': url,
+                    'link_text': f"onclick from {tag.name}",
+                    'method': 'html_parser',
+                    'suspicious_level': 'high'
+                })
         
-        return report
+        # Extract links from JavaScript code
+        script_tags = soup.find_all('script')
+        for script in script_tags:
+            if script.string:
+                urls_in_script = re.findall(url_pattern, script.string)
+                for url in urls_in_script:
+                    extracted_links.append({
+                        'type': 'javascript',
+                        'url': url,
+                        'link_text': f"JavaScript code",
+                        'method': 'html_parser',
+                        'suspicious_level': 'high'
+                    })
+        
+        # Extract links from CSS (style attributes and <style> tags)
+        for tag in soup.find_all(attrs={'style': True}):
+            style_content = tag.get('style', '')
+            urls_in_style = re.findall(url_pattern, style_content)
+            for url in urls_in_style:
+                extracted_links.append({
+                    'type': 'css_inline',
+                    'url': url,
+                    'link_text': f"CSS from {tag.name}",
+                    'method': 'html_parser',
+                    'suspicious_level': 'medium'
+                })
+        
+        style_tags = soup.find_all('style')
+        for style in style_tags:
+            if style.string:
+                urls_in_style = re.findall(url_pattern, style.string)
+                for url in urls_in_style:
+                    extracted_links.append({
+                        'type': 'css_tag',
+                        'url': url,
+                        'link_text': f"CSS tag",
+                        'method': 'html_parser',
+                        'suspicious_level': 'medium'
+                    })
+        
+        # Remove duplicates while preserving order
+        seen_urls = set()
+        unique_links = []
+        for link in extracted_links:
+            if link['url'] not in seen_urls:
+                seen_urls.add(link['url'])
+                unique_links.append(link)
+        
+        return unique_links
         
     except Exception as e:
-        return {
-            'error': f'Failed to generate investigation report: {str(e)}',
-            'summary': {'error': True}
-        }
+        print(f"Error extracting actual links: {e}")
+        return []
 
 def extract_document_advertisements_from_html(file_path, use_llm=True, use_rag=True, use_ai=True, translate=True):
-    """Extract document advertisements using parallel processing and prepare for virus detection."""
+    """Extract actual links and URLs from HTML pages exactly as they appear."""
     
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-            soup = BeautifulSoup(content, 'html.parser')
+            html_content = f.read()
+            soup = BeautifulSoup(html_content, 'html.parser')
             text = soup.get_text()
 
             # Detect suspicious prompt injection attempts
-            suspicious = detect_suspicious_prompts(content)
+            suspicious = detect_suspicious_prompts(html_content)
             if suspicious:
                 print(f"⚠️ Suspicious prompt injection detected in {file_path}: {suspicious}")
 
@@ -684,110 +559,99 @@ def extract_document_advertisements_from_html(file_path, use_llm=True, use_rag=T
                 except Exception as e:
                     print(f"⚠️ Translation failed: {e}")
 
-            # Define extraction methods to run
-            extraction_methods = []
+            # Extract actual links from HTML
+            print("🔗 Extracting actual links from HTML...")
+            actual_links = extract_actual_links_from_html(html_content)
             
-            # Always run regex (fastest and most reliable)
-            extraction_methods.append(("regex", lambda: extract_document_ads_with_regex(text)))
-            
-            # Add AI methods if enabled
-            if use_ai:
-                extraction_methods.append(("ai", lambda: extract_document_ads_with_ai(text)))
-            
-            # Add LLM methods if enabled
-            if use_llm:
-                if use_rag:
-                    extraction_methods.append(("llm_rag", lambda: extract_document_ads_with_llm_rag(text)))
-                extraction_methods.append(("llm_only", lambda: extract_document_ads_with_llm_only(text)))
-
-            # Run methods in parallel
-            all_results = []
-            start_time = time.time()
-            
-            with ThreadPoolExecutor(max_workers=len(extraction_methods)) as executor:
-                # Submit all tasks
-                future_to_method = {
-                    executor.submit(method_func): method_name 
-                    for method_name, method_func in extraction_methods
-                }
+            # Also run the original pattern-based detection for comparison
+            if use_ai or use_llm:
+                print("🔍 Running pattern-based detection...")
+                # Define extraction methods to run
+                extraction_methods = []
                 
-                # Collect results as they complete
-                for future in as_completed(future_to_method):
-                    method_name = future_to_method[future]
-                    try:
-                        result = future.result()
-                        all_results.append(result)
-                        
-                        if result["success"]:
-                            print(f"✅ {method_name.upper()}: Found {len(result['results'])} document advertisements")
-                        else:
-                            print(f"❌ {method_name.upper()}: Failed - {result.get('error', 'Unknown error')}")
-                            
-                    except Exception as e:
-                        print(f"❌ {method_name.upper()}: Exception - {str(e)}")
-                        all_results.append({
-                            "method": method_name,
-                            "results": [],
-                            "success": False,
-                            "error": str(e)
-                        })
+                # Always run regex (fastest and most reliable)
+                extraction_methods.append(("regex", lambda: extract_document_ads_with_regex(text)))
+                
+                # Add AI methods if enabled
+                if use_ai:
+                    extraction_methods.append(("ai", lambda: extract_document_ads_with_ai(text)))
+                
+                # Add LLM methods if enabled
+                if use_llm:
+                    if use_rag:
+                        extraction_methods.append(("llm_rag", lambda: extract_document_ads_with_llm_rag(text)))
+                    extraction_methods.append(("llm_only", lambda: extract_document_ads_with_llm_only(text)))
 
-            # Deduplicate results
-            final_results = deduplicate_results(all_results)
-            
-            processing_time = time.time() - start_time
-            print(f"⏱️ Parallel processing completed in {processing_time:.2f} seconds")
-            print(f"🎯 Total unique document advertisements found: {final_results['total_found']}")
-            
-            # Show method comparison
-            print("\n📊 Method Comparison:")
-            for method, items in final_results["method_results"].items():
-                print(f"  {method.upper()}: {len(items)} items")
-            
-            # Clean and validate results
-            cleaned_results = clean_document_ads(final_results["unique_results"])
-            
-            # Extract suspicious URLs
+                # Run methods in parallel
+                all_results = []
+                start_time = time.time()
+                
+                with ThreadPoolExecutor(max_workers=len(extraction_methods)) as executor:
+                    # Submit all tasks
+                    future_to_method = {
+                        executor.submit(method_func): method_name 
+                        for method_name, method_func in extraction_methods
+                    }
+                    
+                    # Collect results as they complete
+                    for future in as_completed(future_to_method):
+                        method_name = future_to_method[future]
+                        try:
+                            result = future.result()
+                            all_results.append(result)
+                            
+                            if result["success"]:
+                                print(f"✅ {method_name.upper()}: Found {len(result['results'])} patterns")
+                            else:
+                                print(f"❌ {method_name.upper()}: Failed - {result.get('error', 'Unknown error')}")
+                                
+                        except Exception as e:
+                            print(f"❌ {method_name.upper()}: Exception - {str(e)}")
+                            all_results.append({
+                                "method": method_name,
+                                "results": [],
+                                "success": False,
+                                "error": str(e)
+                            })
+
+                # Deduplicate pattern results
+                final_results = deduplicate_results(all_results)
+                pattern_based_ads = clean_document_ads(final_results["unique_results"])
+                
+                processing_time = time.time() - start_time
+                print(f"⏱️ Pattern detection completed in {processing_time:.2f} seconds")
+                print(f"🎯 Pattern-based items found: {final_results['total_found']}")
+            else:
+                pattern_based_ads = []
+
+            # Extract suspicious URLs using the existing function
             suspicious_urls = extract_urls_from_text(text)
             
-            # Prepare for virus detection API
-            virus_detection_data = prepare_for_virus_detection(cleaned_results, suspicious_urls)
+            print(f"🔗 Actual links extracted: {len(actual_links)}")
+            print(f"⚠️ Suspicious URLs detected: {len(suspicious_urls)}")
             
-                    # Generate detailed report for manual investigation
-        investigation_report = generate_investigation_report(cleaned_results, suspicious_urls, virus_detection_data)
-        
-        return {
-            'document_advertisements': cleaned_results,
-            'suspicious_urls': suspicious_urls,
-            'virus_detection_data': virus_detection_data,
-            'investigation_report': investigation_report,
-            'total_found': len(cleaned_results) + len(suspicious_urls)
-        }
+            # Return comprehensive structure with actual links
+            return {
+                'actual_links': actual_links,
+                'document_advertisements': pattern_based_ads,
+                'suspicious_urls': suspicious_urls,
+                'total_found': len(actual_links) + len(pattern_based_ads) + len(suspicious_urls),
+                'link_summary': {
+                    'total_links': len(actual_links),
+                    'hyperlink_links': len([l for l in actual_links if l['type'] == 'hyperlink']),
+                    'text_urls': len([l for l in actual_links if l['type'] == 'text_url']),
+                    'resource_links': len([l for l in actual_links if l['type'] == 'resource_link']),
+                    'javascript_links': len([l for l in actual_links if l['type'] == 'javascript']),
+                    'event_handler_links': len([l for l in actual_links if l['type'] == 'event_handler'])
+                }
+            }
 
     except Exception as e:
-        print(f"[ERROR] Failed to extract document advertisements from {file_path}: {e}")
+        print(f"[ERROR] Failed to extract links from {file_path}: {e}")
         return {
+            'actual_links': [],
             'document_advertisements': [],
             'suspicious_urls': [],
-            'virus_detection_data': {
-                'document_advertisements': [],
-                'suspicious_urls': [],
-                'high_risk_items': [],
-                'malicious_file_downloads': [],
-                'executable_files': [],
-                'api_ready': False,
-                'error': str(e),
-                'summary': {
-                    'total_document_ads': 0,
-                    'total_suspicious_urls': 0,
-                    'high_risk_urls': 0,
-                    'executable_files': 0,
-                    'malicious_keywords_found': 0
-                }
-            },
-            'investigation_report': {
-                'error': str(e),
-                'summary': {'error': True}
-            },
-            'total_found': 0
+            'total_found': 0,
+            'link_summary': {}
         } 

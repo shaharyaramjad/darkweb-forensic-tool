@@ -225,6 +225,154 @@ class VirusDetectionAPI:
                 })
         
         return results
+
+    def check_actual_links_from_database(self, case_id: str = None, limit: int = 50) -> Dict:
+        """Check actual links from the database with virus detection APIs"""
+        try:
+            import mysql.connector
+            from dotenv import load_dotenv
+            
+            # Connect to database
+            conn = mysql.connector.connect(
+                host=os.getenv("DB_HOST"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                database=os.getenv("DB_NAME")
+            )
+            cursor = conn.cursor()
+
+            # Build query to get actual links
+            if case_id:
+                query = """
+                SELECT al.url, al.link_type, al.suspicious_level, c.case_id, c.investigator_name
+                FROM actual_links al
+                JOIN case_metadata c ON al.case_id = c.id
+                WHERE c.case_id = %s
+                ORDER BY al.created_at DESC
+                LIMIT %s
+                """
+                cursor.execute(query, (case_id, limit))
+            else:
+                query = """
+                SELECT al.url, al.link_type, al.suspicious_level, c.case_id, c.investigator_name
+                FROM actual_links al
+                JOIN case_metadata c ON al.case_id = c.id
+                ORDER BY al.created_at DESC
+                LIMIT %s
+                """
+                cursor.execute(query, (limit,))
+
+            links = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            if not links:
+                return {
+                    'success': False,
+                    'error': 'No actual links found in database',
+                    'total_checked': 0,
+                    'malicious_found': 0,
+                    'high_risk_urls': [],
+                    'api_results': {}
+                }
+
+            # Convert to suspicious_urls format for existing check function
+            suspicious_urls = []
+            for link in links:
+                url, link_type, suspicious_level, case_id, investigator = link
+                suspicious_urls.append({
+                    'url': url,
+                    'risk_level': suspicious_level,
+                    'link_type': link_type,
+                    'case_id': case_id,
+                    'investigator': investigator
+                })
+
+            # Use existing check function
+            return self.check_suspicious_urls(suspicious_urls)
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Database error: {str(e)}',
+                'total_checked': 0,
+                'malicious_found': 0,
+                'high_risk_urls': [],
+                'api_results': {}
+            }
+
+    def check_actual_links_by_type(self, link_type: str = None, limit: int = 50) -> Dict:
+        """Check actual links filtered by type (e.g., 'javascript', 'event_handler')"""
+        try:
+            import mysql.connector
+            
+            # Connect to database
+            conn = mysql.connector.connect(
+                host=os.getenv("DB_HOST"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                database=os.getenv("DB_NAME")
+            )
+            cursor = conn.cursor()
+
+            # Build query based on link type
+            if link_type:
+                query = """
+                SELECT al.url, al.link_type, al.suspicious_level, c.case_id, c.investigator_name
+                FROM actual_links al
+                JOIN case_metadata c ON al.case_id = c.id
+                WHERE al.link_type = %s
+                ORDER BY al.created_at DESC
+                LIMIT %s
+                """
+                cursor.execute(query, (link_type, limit))
+            else:
+                query = """
+                SELECT al.url, al.link_type, al.suspicious_level, c.case_id, c.investigator_name
+                FROM actual_links al
+                JOIN case_metadata c ON al.case_id = c.id
+                ORDER BY al.created_at DESC
+                LIMIT %s
+                """
+                cursor.execute(query, (limit,))
+
+            links = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            if not links:
+                return {
+                    'success': False,
+                    'error': f'No links found for type: {link_type}' if link_type else 'No links found',
+                    'total_checked': 0,
+                    'malicious_found': 0,
+                    'high_risk_urls': [],
+                    'api_results': {}
+                }
+
+            # Convert to suspicious_urls format
+            suspicious_urls = []
+            for link in links:
+                url, link_type, suspicious_level, case_id, investigator = link
+                suspicious_urls.append({
+                    'url': url,
+                    'risk_level': suspicious_level,
+                    'link_type': link_type,
+                    'case_id': case_id,
+                    'investigator': investigator
+                })
+
+            return self.check_suspicious_urls(suspicious_urls)
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Database error: {str(e)}',
+                'total_checked': 0,
+                'malicious_found': 0,
+                'high_risk_urls': [],
+                'api_results': {}
+            }
     
     def prepare_api_request_data(self, virus_detection_data: Dict) -> Dict:
         """Prepare data for external virus detection API"""
@@ -574,4 +722,110 @@ def process_document_advertisements_for_virus_detection(
         return {
             'success': False,
             'error': f'Failed to process document advertisements for virus detection: {str(e)}'
+        }
+
+def scan_actual_links_from_database(
+    case_id: str = None,
+    link_type: str = None,
+    limit: int = 50,
+    enable_live_checks: bool = True,
+    api_endpoint: Optional[str] = None,
+) -> Dict:
+    """Main function to scan actual links from database with virus detection APIs.
+    
+    Args:
+        case_id: Specific case ID to scan (optional)
+        link_type: Filter by link type (e.g., 'javascript', 'event_handler') (optional)
+        limit: Maximum number of links to scan (default: 50)
+        enable_live_checks: Whether to perform live API checks
+        api_endpoint: External API endpoint to send results to (optional)
+    
+    Returns:
+        Dict with scan results and recommendations
+    """
+    try:
+        virus_api = VirusDetectionAPI()
+        
+        # Decide whether to perform live checks
+        effective_live_checks = (
+            enable_live_checks or virus_api.enable_live_checks_env
+        ) and virus_api.has_any_api_key()
+        
+        # Get links from database
+        if link_type:
+            api_results = virus_api.check_actual_links_by_type(link_type, limit)
+        else:
+            api_results = virus_api.check_actual_links_from_database(case_id, limit)
+        
+        if not api_results.get('success', True):
+            return {
+                'success': False,
+                'error': api_results.get('error', 'Unknown error'),
+                'api_results': api_results
+            }
+        
+        # Generate report for actual links
+        report = {
+            'timestamp': None,  # Will be set by caller
+            'scan_type': 'actual_links_database',
+            'case_id': case_id,
+            'link_type_filter': link_type,
+            'limit_applied': limit,
+            'summary': {
+                'total_links_checked': api_results.get('total_checked', 0),
+                'malicious_links_found': api_results.get('malicious_found', 0),
+                'high_risk_links': len(api_results.get('high_risk_urls', [])),
+                'api_checks_performed': api_results.get('live_checks_available', False),
+                'live_checks_effective': effective_live_checks
+            },
+            'api_results': api_results,
+            'recommendations': [],
+            'high_risk_links': api_results.get('high_risk_urls', []),
+            'all_checked_urls': list(api_results.get('api_results', {}).keys())
+        }
+        
+        # Generate recommendations based on results
+        if api_results.get('malicious_found', 0) > 0:
+            report['recommendations'].append(f"🚨 CRITICAL: {api_results['malicious_found']} malicious URLs detected - BLOCK IMMEDIATELY")
+            report['recommendations'].append("🔍 MANUAL INVESTIGATION: Review each malicious URL for threat analysis")
+        
+        if len(api_results.get('high_risk_urls', [])) > 0:
+            report['recommendations'].append(f"⚠️ HIGH RISK: {len(api_results['high_risk_urls'])} high-risk URLs require immediate attention")
+        
+        if link_type in ['javascript', 'event_handler']:
+            report['recommendations'].append("🔒 SECURITY: JavaScript and event handler links are high-risk - investigate thoroughly")
+        
+        if api_results.get('total_checked', 0) > 20:
+            report['recommendations'].append("📊 MONITORING: Large number of links scanned - consider automated monitoring")
+        
+        if not effective_live_checks:
+            report['recommendations'].append("🔑 CONFIGURATION: No API keys configured - enable live checks for real-time threat detection")
+        
+        if not report['recommendations']:
+            report['recommendations'].append("✅ No immediate threats detected in scanned links")
+        
+        # Send to external API if endpoint provided
+        api_request_result = None
+        if effective_live_checks and api_endpoint:
+            api_request_result = virus_api.send_to_virus_detection_api({
+                'actual_links_scan': report
+            }, api_endpoint=api_endpoint)
+        
+        return {
+            'success': True,
+            'report': report,
+            'api_results': api_results,
+            'api_request_result': api_request_result,
+            'recommendations': report['recommendations'],
+            'live_checks_effective': effective_live_checks,
+            'total_links_scanned': api_results.get('total_checked', 0),
+            'malicious_found': api_results.get('malicious_found', 0)
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to scan actual links from database: {str(e)}',
+            'api_results': {},
+            'recommendations': ['❌ Error occurred during virus scan']
         }
