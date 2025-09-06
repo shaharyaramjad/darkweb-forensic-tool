@@ -24,7 +24,7 @@ client = OpenAI(
 # === StarPII client ===
 pii_client = InferenceClient(
     provider="hf-inference",
-    api_key="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",
+    api_key="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",
 )
 
 # === Regex patterns ===

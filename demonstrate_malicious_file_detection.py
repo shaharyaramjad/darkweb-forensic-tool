@@ -8,6 +8,10 @@ import sys
 import os
 import json
 from datetime import datetime
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.extract.document_advertisement_detector import extract_document_advertisements_from_html

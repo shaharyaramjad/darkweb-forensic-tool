@@ -24,7 +24,7 @@ client = OpenAI(
 # === Hugging Face client for AI model ===
 hf_client = InferenceClient(
     provider="hf-inference",
-    api_key="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",
+    api_key="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",
 )
 
 # === Regex patterns for PGP keys and blocks ===

@@ -25,7 +25,7 @@ client = OpenAI(
 # === Hugging Face client for AI model ===
 hf_client = InferenceClient(
     provider="hf-inference",
-    api_key="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",
+    api_key="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",
 )
 
 # === Regex patterns for usernames/aliases ===
@@ -287,7 +287,7 @@ def extract_usernames_with_llm_rag(text):
         """
         
         response = client.chat.completions.create(
-            model="meta-llama/Llama-3.1-8B-Instruct",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.1
@@ -341,7 +341,7 @@ def extract_usernames_with_llm_only(text):
         """
         
         response = client.chat.completions.create(
-            model="meta-llama/Llama-3.1-8B-Instruct",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.1

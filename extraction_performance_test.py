@@ -1,5 +1,9 @@
 import sys
 import os
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 import pandas as pd

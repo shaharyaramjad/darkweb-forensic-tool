@@ -1,6 +1,10 @@
 import streamlit as st
 import sys
 import os
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from datetime import datetime
@@ -56,18 +60,78 @@ with tab1:
 
     # ========== Analysis Options ==========
     st.subheader("⚙️ Analysis Options")
-
-    USE_LLM = st.checkbox("Use LLM Summary", value=True)
-    USE_RAG = st.checkbox("Use RAG (knowledge-augmented fallback)", value=False)
-    USE_AI = st.checkbox("Use AI Model (StarPII, Zero-shot, etc.)", value=True)
-    TRANSLATE = st.checkbox("Translate non-English content", value=True)
-    USE_SQL = st.checkbox("Insert results into SQL database", value=True)
+    
+    # Add information about API requirements
+    with st.expander("🔑 How to Enable AI/LLM Features"):
+        st.markdown("""
+        **To enable AI and LLM features, you need to set up API keys:**
+        
+        **Option 1: Create a .env file in your project root:**
+        ```
+        # For LLM features (OpenAI or Together.ai)
+        OPENAI_API_KEY=your_openai_key_here
+        # OR
+        TOGETHER_API_KEY=your_together_key_here
+        
+        # For AI models (Hugging Face)
+        HUGGINGFACE_API_KEY=your_huggingface_key_here
+        ```
+        
+        **Option 2: Set environment variables:**
+        ```bash
+        export OPENAI_API_KEY="your_key_here"
+        export HUGGINGFACE_API_KEY="your_key_here"
+        ```
+        
+        **Get API Keys:**
+        - **OpenAI**: https://platform.openai.com/api-keys
+        - **Together.ai**: https://api.together.xyz/settings/api-keys  
+        - **Hugging Face**: https://huggingface.co/settings/tokens
+        
+        **Without API keys, the tool will use regex-based extraction (which works great!).**
+        """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        USE_LLM = st.checkbox("🤖 Use LLM Summary", value=False, help="Requires OPENAI_API_KEY or TOGETHER_API_KEY")
+        USE_RAG = st.checkbox("🧠 Use RAG (knowledge-augmented fallback)", value=False, help="Requires OPENAI_API_KEY or TOGETHER_API_KEY")
+        USE_AI = st.checkbox("🔍 Use AI Model (StarPII, Zero-shot, etc.)", value=False, help="Requires HUGGINGFACE_API_KEY")
+    
+    with col2:
+        TRANSLATE = st.checkbox("🌐 Translate non-English content", value=True, help="Uses Google Translate API")
+        USE_SQL = st.checkbox("💾 Insert results into SQL database", value=True, help="Saves results to MySQL database")
     ENABLE_VIRUS_LIVE_CHECKS = st.checkbox(
         "🛡️ Enable Live Virus Checks (VirusTotal/URLVoid)",
         value=False,
         help="When enabled and API keys are configured in .env, suspicious URLs are checked live. When disabled, the tool still prepares an API-ready payload and a manual investigation report."
     )
     ENABLE_SECURITY_SCAN = st.checkbox("🔒 Enable Security Scanning", value=True, help="Scan for malicious content before processing")
+    
+    # Status display
+    st.subheader("📊 Current Configuration")
+    status_col1, status_col2, status_col3 = st.columns(3)
+    
+    with status_col1:
+        st.write("**🤖 AI Features:**")
+        if USE_AI:
+            st.success("✅ AI Models Enabled")
+        else:
+            st.info("ℹ️ AI Models Disabled (Regex only)")
+            
+    with status_col2:
+        st.write("**🧠 LLM Features:**")
+        if USE_LLM:
+            st.success("✅ LLM Summary Enabled")
+        else:
+            st.info("ℹ️ LLM Summary Disabled")
+            
+    with status_col3:
+        st.write("**🔧 Other Features:**")
+        if TRANSLATE:
+            st.success("✅ Translation Enabled")
+        if USE_SQL:
+            st.success("✅ Database Storage Enabled")
 
     # ========== Process Button ==========
     if st.button("Extract Data"):

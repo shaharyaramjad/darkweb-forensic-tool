@@ -69,10 +69,10 @@ CREATE TABLE usernames (
 CREATE TABLE document_advertisements (
     id INT AUTO_INCREMENT PRIMARY KEY,
     case_id INT,
-    ad_type VARCHAR(100),
+    ad_type VARCHAR(255),
     content TEXT,
-    suspicious_level VARCHAR(50),
-    method VARCHAR(50),
+    suspicious_level VARCHAR(100),
+    method VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (case_id) REFERENCES case_metadata(id)
 );
