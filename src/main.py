@@ -1,6 +1,10 @@
 import os
 import sys
 import random
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.utils.db_insert import insert_into_db
@@ -23,7 +27,7 @@ from src.extract.utils_visible_text import detect_suspicious_prompts
 
 # ===== Toggle Integrations =====
 USE_LLM = False      # 🔁 Toggle LLM summarization ON/OFF
-USE_AI_MODEL = True  # 🔁 Toggle spaCy local AI ON/OFF
+USE_AI_MODEL = False # 🔁 Toggle spaCy local AI ON/OFF
 TRANSLATE = True     # 🔁 Enable or disable translation step
 USE_SQL = True   # 🔁 Set to True to enable MySQL insert
 USE_RAG = False

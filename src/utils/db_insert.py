@@ -78,41 +78,43 @@ def insert_into_db(case_id, investigator, notes, emails, payment_addresses, keyw
             VALUES (%s, %s, %s)
         """, (case_db_id, data_type, content))
 
-    # Insert document advertisements
-    if document_ads_data:
-        # Insert document advertisements
-        for ad in document_ads_data.get('document_advertisements', []):
-            ad_type = ad.get('type', 'unknown')
-            content = ad.get('content', '')
-            suspicious_level = ad.get('suspicious_level', 'medium')
-            method = ad.get('method', 'unknown')
-            cursor.execute("""
-                INSERT INTO document_advertisements (case_id, ad_type, content, suspicious_level, method)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (case_db_id, ad_type, content, suspicious_level, method))
-        
-        # Insert suspicious URLs
-        for url_data in document_ads_data.get('suspicious_urls', []):
-            url = url_data.get('url', '')
-            domain = url_data.get('domain', '')
-            suspicious_reason = url_data.get('suspicious_reason', '')
-            risk_level = url_data.get('risk_level', 'medium')
-            cursor.execute("""
-                INSERT INTO suspicious_urls (case_id, url, domain, suspicious_reason, risk_level)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (case_db_id, url, domain, suspicious_reason, risk_level))
-        
-        # Insert actual links
-        for link_data in document_ads_data.get('actual_links', []):
-            link_type = link_data.get('type', 'unknown')
-            url = link_data.get('url', '')
-            link_text = link_data.get('link_text', '')
-            extraction_method = link_data.get('method', 'unknown')
-            suspicious_level = link_data.get('suspicious_level', 'medium')
-            cursor.execute("""
-                INSERT INTO actual_links (case_id, link_type, url, link_text, extraction_method, suspicious_level)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (case_db_id, link_type, url, link_text, extraction_method, suspicious_level))
+    # Insert document advertisements - DISABLED to avoid database column size issues
+    # if document_ads_data:
+    #     # Insert document advertisements
+    #     for ad in document_ads_data.get('document_advertisements', []):
+    #         ad_type = ad.get('type', 'unknown')
+    #         content = ad.get('content', '')
+    #         suspicious_level = ad.get('suspicious_level', 'medium')
+    #         method = ad.get('method', 'unknown')
+    #         cursor.execute("""
+    #             INSERT INTO document_advertisements (case_id, ad_type, content, suspicious_level, method)
+    #             VALUES (%s, %s, %s, %s, %s)
+    #         """, (case_db_id, ad_type, content, suspicious_level, method))
+    #     
+    #     # Insert suspicious URLs
+    #     for url_data in document_ads_data.get('suspicious_urls', []):
+    #         url = url_data.get('url', '')
+    #         domain = url_data.get('domain', '')
+    #         suspicious_reason = url_data.get('suspicious_reason', '')
+    #         risk_level = url_data.get('risk_level', 'medium')
+    #         cursor.execute("""
+    #             INSERT INTO suspicious_urls (case_id, url, domain, suspicious_reason, risk_level)
+    #             VALUES (%s, %s, %s, %s, %s)
+    #         """, (case_db_id, url, domain, suspicious_reason, risk_level))
+    #     
+    #     # Insert actual links
+    #     for link_data in document_ads_data.get('actual_links', []):
+    #         link_type = link_data.get('type', 'unknown')
+    #         url = link_data.get('url', '')
+    #         link_text = link_data.get('link_text', '')
+    #         extraction_method = link_data.get('method', 'unknown')
+    #         suspicious_level = link_data.get('suspicious_level', 'medium')
+    #         cursor.execute("""
+    #             INSERT INTO actual_links (case_id, link_type, url, link_text, extraction_method, suspicious_level)
+    #             VALUES (%s, %s, %s, %s, %s, %s)
+    #         """, (case_db_id, link_type, url, link_text, extraction_method, suspicious_level))
+    
+    print("ℹ️ Document advertisements database insertion disabled to avoid column size issues")
 
     conn.commit()
     cursor.close()

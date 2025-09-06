@@ -5,6 +5,10 @@ Demonstration: Show exactly what content is preserved vs removed by security sca
 
 import os
 import sys
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append(os.path.abspath('.'))
 
 from src.utils.security_scanner import SecurityScanner

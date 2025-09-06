@@ -5,6 +5,10 @@ Test script to demonstrate virus detection for actual links from database.
 
 import os
 import sys
+
+# Fix tokenizers parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 sys.path.append('src')
 
 from src.utils.virus_detection_api import scan_actual_links_from_database, VirusDetectionAPI
