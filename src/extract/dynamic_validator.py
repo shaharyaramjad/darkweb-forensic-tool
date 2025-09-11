@@ -95,16 +95,28 @@ class DynamicValidator:
     def _is_valid_address_pattern(self, content, data_type, context):
         """Dynamic address validation."""
         content_lower = content.lower()
+        content_clean = content.strip()
         
         # Check for malware/irrelevant content
         if self.context_analyzer.is_malware_context(context, content):
             return False
         
+        # Skip if content is too short or too long
+        if len(content_clean) < 5 or len(content_clean) > 200:
+            return False
+        
+        # Skip if content contains newlines or multiple sentences (likely not an address)
+        if '\n' in content or content.count('.') > 2:
+            return False
+        
         if data_type == 'postal_address':
-            # Must contain street number and name
-            return (re.search(r'\d+', content) and 
-                   re.search(r'[A-Za-z]', content) and 
-                   len(content.strip()) > 10)
+            # Must contain street number and name, and look like an address
+            has_number = re.search(r'\d+', content)
+            has_letters = re.search(r'[A-Za-z]', content)
+            has_street_word = re.search(r'\b(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|way|place|pl|court|ct|circle|cir|terrace|ter)\b', content, re.IGNORECASE)
+            
+            return (has_number and has_letters and has_street_word and 
+                   len(content_clean) > 8 and len(content_clean) < 100)
         
         elif data_type == 'postal_code':
             # Must be valid postal code format
@@ -114,9 +126,9 @@ class DynamicValidator:
             # Must contain decimal coordinates
             return bool(re.search(r'\d+\.\d+', content))
         
-        elif data_type in ['drop_location', 'time_instructions']:
+        elif data_type in ['drop_location', 'shipping_instructions', 'landmark_references', 'time_instructions']:
             # Must be address-related and not malware
-            return (len(content.strip()) > 5 and 
+            return (len(content_clean) > 5 and len(content_clean) < 150 and
                    not self.context_analyzer.is_malware_context(context, content))
         
         else:
@@ -229,13 +241,17 @@ class ContextAnalyzer:
         context_lower = context.lower()
         content_lower = content.lower()
         
-        # Check for malware keywords in surrounding context
-        malware_context = any(keyword in context_lower for keyword in self.malware_keywords)
-        
-        # Check if content contains malware indicators
+        # Check if content itself contains malware indicators
         content_malware = any(keyword in content_lower for keyword in self.malware_keywords)
+        if content_malware:
+            return True
         
-        return malware_context or content_malware
+        # Check for malware keywords in surrounding context (more specific)
+        # Only consider it malware context if the content appears near malware terms
+        words_before_after = self._get_surrounding_words(context, content, 5)
+        malware_nearby = any(keyword in words_before_after for keyword in self.malware_keywords)
+        
+        return malware_nearby
     
     def is_part_of_phrase(self, context, content):
         """Check if content is part of a larger phrase."""

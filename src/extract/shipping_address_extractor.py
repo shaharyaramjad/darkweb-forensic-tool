@@ -12,13 +12,14 @@ import time
 from src.extract.utils_visible_text import detect_suspicious_prompts
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
+import spacy
 
 # Load environment variables
 load_dotenv()
 
 # === Together.ai LLM ===
 client = OpenAI(
-    base_url="https://api.together.ai/",
+    base_url="https://api.together.ai/v1",
     api_key=os.getenv("TOGETHER_API_KEY"),
 )
 
@@ -31,10 +32,20 @@ hf_client = InferenceClient(
 # === Regex patterns for shipping/drop addresses ===
 shipping_patterns = {
     'postal_address': [
+        # Full address patterns with street numbers and names
         r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\b',
         r'\b[A-Za-z\s]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\s+\d+\b',
         r'\b\d+\s+[A-Za-z\s]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\b',
         r'\b[A-Za-z\s]+\s+\d+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\b',
+        # Addresses with city, state, ZIP
+        r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\s*,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?\b',
+        # P.O. Box addresses
+        r'\bP\.?O\.?\s+Box\s+\d+\b',
+        r'\bPO\s+Box\s+\d+\b',
+        # Suite/Apartment addresses
+        r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\s*(?:Suite|Ste|Apt|Apartment|Unit|#)\s*\d+\b',
+        # International addresses
+        r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Place|Pl|Court|Ct|Circle|Cir|Terrace|Ter)\s*,\s*[A-Za-z\s]+,\s*[A-Za-z\s]+\b',
     ],
     'drop_location': [
         r'\b(?:drop|delivery|pickup|meet|location|address)\s*[:\-]?\s*([A-Za-z0-9\s,\.\-]+)\b',
@@ -148,8 +159,20 @@ def extract_shipping_addresses_with_regex(text):
 def extract_shipping_addresses_with_ai(text):
     """Extract shipping addresses using Hugging Face AI model"""
     try:
-        # Use StarPII for location entity detection
-        result = hf_client.token_classification(text, model="bigcode/starpii")
+        # Use StarPII for location entity detection with timeout
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+        
+        def ai_extraction():
+            return hf_client.token_classification(text, model="bigcode/starpii")
+        
+        # Use ThreadPoolExecutor for timeout
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(ai_extraction)
+            try:
+                result = future.result(timeout=10)  # 10 second timeout
+            except FutureTimeoutError:
+                return {"method": "ai", "results": [], "success": False, "error": "AI extraction timed out"}
+        
         shipping_data = []
         
         for entity in result:
@@ -185,9 +208,59 @@ def extract_shipping_addresses_with_ai(text):
     except Exception as e:
         return {"method": "ai", "results": [], "success": False, "error": str(e)}
 
+def extract_shipping_addresses_with_spacy(text):
+    """Extract shipping addresses using spaCy NER as fallback"""
+    try:
+        # Load spaCy model
+        try:
+            nlp = spacy.load("en_core_web_sm")
+        except OSError:
+            # Fallback to basic model if en_core_web_sm not available
+            nlp = spacy.load("en_core_web_trf")
+        
+        doc = nlp(text)
+        shipping_data = []
+        
+        for ent in doc.ents:
+            if ent.label_ in ['GPE', 'LOC', 'ORG']:  # Geopolitical entity, Location, Organization
+                content = ent.text.strip()
+                # Check if it looks like a shipping address
+                if re.search(r'\b(?:street|avenue|road|lane|drive|way|place|court|circle|terrace|st|ave|rd|ln|dr|pl|ct|cir|ter)\b', content, re.IGNORECASE):
+                    shipping_data.append({
+                        'type': 'postal_address',
+                        'content': content,
+                        'method': 'spacy'
+                    })
+                elif re.search(r'\b(?:drop|delivery|pickup|meet|location|address)\b', content, re.IGNORECASE):
+                    shipping_data.append({
+                        'type': 'drop_location',
+                        'content': content,
+                        'method': 'spacy'
+                    })
+                elif re.search(r'\b(?:ship|deliver|send|mail|post)\b', content, re.IGNORECASE):
+                    shipping_data.append({
+                        'type': 'shipping_instructions',
+                        'content': content,
+                        'method': 'spacy'
+                    })
+                elif re.match(r'^\d{5}(?:-\d{4})?$', content):
+                    shipping_data.append({
+                        'type': 'postal_code',
+                        'content': content,
+                        'method': 'spacy'
+                    })
+        
+        return {"method": "spacy", "results": shipping_data, "success": True}
+    except Exception as e:
+        return {"method": "spacy", "results": [], "success": False, "error": str(e)}
+
 def extract_shipping_addresses_with_llm_rag(text):
     """Extract shipping addresses using LLM with RAG context"""
     try:
+        # Check if API key is available
+        if not os.getenv("TOGETHER_API_KEY"):
+            return {"method": "llm_rag", "results": [], "success": False, "error": "TOGETHER_API_KEY not set"}
+        
         retrieved_context = retrieve_context("shipping address delivery location drop", knowledge_texts)
         
         prompt = f"""
@@ -216,12 +289,24 @@ def extract_shipping_addresses_with_llm_rag(text):
         Examples: postal_address:123 Main Street,city_state:New York NY,drop_location:meet at the park
         """
         
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
-            temperature=0.1
-        )
+        # Add timeout for LLM call
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+        
+        def llm_extraction():
+            return client.chat.completions.create(
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.1
+            )
+        
+        # Use ThreadPoolExecutor for timeout
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(llm_extraction)
+            try:
+                response = future.result(timeout=15)  # 15 second timeout
+            except FutureTimeoutError:
+                return {"method": "llm_rag", "results": [], "success": False, "error": "LLM extraction timed out"}
         
         result = response.choices[0].message.content.strip()
         
@@ -248,6 +333,10 @@ def extract_shipping_addresses_with_llm_rag(text):
 def extract_shipping_addresses_with_llm_only(text):
     """Extract shipping addresses using LLM only."""
     try:
+        # Check if API key is available
+        if not os.getenv("TOGETHER_API_KEY"):
+            return {"method": "llm_only", "results": [], "success": False, "error": "TOGETHER_API_KEY not set"}
+        
         prompt = f"""
         You are an expert forensic analyst. Extract shipping addresses and delivery locations from the text.
         
@@ -269,12 +358,24 @@ def extract_shipping_addresses_with_llm_only(text):
         Examples: postal_address:123 Main Street,city_state:New York NY,drop_location:meet at the park
         """
         
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
-            temperature=0.1
-        )
+        # Add timeout for LLM call
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+        
+        def llm_extraction():
+            return client.chat.completions.create(
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.1
+            )
+        
+        # Use ThreadPoolExecutor for timeout
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(llm_extraction)
+            try:
+                response = future.result(timeout=15)  # 15 second timeout
+            except FutureTimeoutError:
+                return {"method": "llm_only", "results": [], "success": False, "error": "LLM extraction timed out"}
         
         result = response.choices[0].message.content.strip()
         
@@ -359,6 +460,9 @@ def extract_shipping_addresses_from_html(file_path, use_llm=True, use_rag=True, 
             
             # Always run regex (fastest and most reliable)
             extraction_methods.append(("regex", lambda: extract_shipping_addresses_with_regex(text)))
+            
+            # Always run spaCy as fallback (reliable and fast)
+            extraction_methods.append(("spacy", lambda: extract_shipping_addresses_with_spacy(text)))
             
             # Add AI methods if enabled
             if use_ai:
