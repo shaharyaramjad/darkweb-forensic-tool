@@ -218,7 +218,7 @@ def extract_document_ads_with_llm_rag(text):
         """
         
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="mistralai/Mistral-7B-Instruct-v0.2",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.1
@@ -271,7 +271,7 @@ def extract_document_ads_with_llm_only(text):
         """
         
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="mistralai/Mistral-7B-Instruct-v0.2",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
             temperature=0.1
